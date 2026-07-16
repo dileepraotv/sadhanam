@@ -606,9 +606,14 @@ export async function bulkSaveGameScores(
   }
 
   // ── 3. Filter out games that come after match winner is decided ──────────
-  // Transform entries to match filterGamesToSave input format
+  // Exclude from existingGames any game numbers being overwritten by new entries,
+  // so filterGamesToSave doesn't double-count wins for re-entered games.
+  const incomingNums = new Set(entries.map(e => e.gameNumber))
+  const priorGames   = clearExistingFirst
+    ? []
+    : existingGames.filter(g => !incomingNums.has(g.game_number))
   const entriesToFilter = entries.map(e => ({ game_number: e.gameNumber, score1: e.score1, score2: e.score2 }))
-  const filterResult = filterGamesToSave(entriesToFilter, existingGames, format, p1, p2)
+  const filterResult = filterGamesToSave(entriesToFilter, priorGames, format, p1, p2)
   const validEntries = filterResult.validGames.map(g => ({ gameNumber: g.game_number, score1: g.score1, score2: g.score2 }))
   const skippedCount = filterResult.skippedCount
 
