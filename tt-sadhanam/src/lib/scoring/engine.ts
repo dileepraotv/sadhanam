@@ -186,7 +186,7 @@ export function computeMatchState(
   player1Id: string | null,
   player2Id: string | null,
 ): ComputedMatchState {
-  const { gamesNeeded, maxGames } = FORMAT_CONFIGS[format]
+  const { gamesNeeded, maxGames } = FORMAT_CONFIGS[format] ?? FORMAT_CONFIGS['bo5']
 
   // Sort games by game_number ascending
   const sorted = [...games].sort((a, b) => a.game_number - b.game_number)
@@ -287,7 +287,7 @@ export function canAddAnotherGame(
   player2Id:     string | null,
   gameNumber:    number,
 ): CanAddGameResult {
-  const { maxGames } = FORMAT_CONFIGS[format]
+  const { maxGames } = FORMAT_CONFIGS[format] ?? FORMAT_CONFIGS['bo5']
   const state        = computeMatchState(existingGames, format, player1Id, player2Id)
   const nextGameNum  = (existingGames.length > 0
     ? Math.max(...existingGames.map(g => g.game_number))
@@ -395,7 +395,7 @@ export function inferGameNumbersToShow(
   player1Id:     string | null,
   player2Id:     string | null,
 ): number[] {
-  const { maxGames } = FORMAT_CONFIGS[format]
+  const { maxGames } = FORMAT_CONFIGS[format] ?? FORMAT_CONFIGS['bo5']
   const state = computeMatchState(existingGames, format, player1Id, player2Id)
 
   if (state.outcome !== 'in_progress') {
@@ -447,7 +447,7 @@ export function filterGamesToSave(
   matchWonByPlayer1: boolean | null
   decidingGameNumber: number | null
 } {
-  const { gamesNeeded } = FORMAT_CONFIGS[format]
+  const { gamesNeeded } = FORMAT_CONFIGS[format] ?? FORMAT_CONFIGS['bo5']
 
   // Start with cumulative wins from existing games
   const existingState = computeMatchState(existingGames, format, player1Id, player2Id)

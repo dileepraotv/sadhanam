@@ -27,7 +27,7 @@ export default async function MatchScoringPage({ params, searchParams }: PagePro
   // Load match with players + stage/group context
   const { data: match } = await supabase
     .from('matches')
-    .select('*, player1:player1_id(id,name,seed,club), player2:player2_id(id,name,seed,club), winner:winner_id(id,name,seed)')
+    .select('*, match_format, player1:player1_id(id,name,seed,club), player2:player2_id(id,name,seed,club), winner:winner_id(id,name,seed)')
     .eq('id', params.matchId)
     .eq('tournament_id', params.id)
     .single()

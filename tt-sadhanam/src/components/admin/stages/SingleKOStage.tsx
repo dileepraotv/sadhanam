@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/index'
 import { BracketView }                 from '@/components/bracket/BracketView'
 import { generateBracketAction }       from '@/lib/actions/tournaments'
 import { resetSingleKOBracket }        from '@/lib/actions/stages'
+import { generateKnockoutStage }       from '@/lib/actions/knockout'
 import { toast }                       from '@/components/ui/toaster'
 import { ResetStageDialog }            from './ResetStageDialog'
 import { NextStepBanner } from './NextStepBanner'
@@ -24,9 +25,11 @@ interface Props {
   players:     Player[]
   matches:     Match[]
   matchBase:   string
+  /** When provided (single_round_robin format), generate KO from RR qualifiers only */
+  rrStageId?:  string
 }
 
-export function SingleKOStage({ tournament, players, matches, matchBase }: Props) {
+export function SingleKOStage({ tournament, players, matches, matchBase, rrStageId }: Props) {
   const [isPending, startTransition] = useTransition()
   const { setLoading }               = useLoading()
   const [showReset, setShowReset]    = useState(false)
@@ -42,10 +45,18 @@ export function SingleKOStage({ tournament, players, matches, matchBase }: Props
     setLoading(true)
     startTransition(async () => {
       try {
-        await generateBracketAction(tournament.id)
+        if (rrStageId) {
+          // RR+KO: build bracket from qualifiers only, not all players
+          const result = await generateKnockoutStage(tournament.id, rrStageId)
+          if (result.error) throw new Error(result.error)
+        } else {
+          await generateBracketAction(tournament.id)
+        }
         toast({
           title:       '✅ Bracket generated!',
-          description: `${players.length} players seeded into ${realMatches.length} match slots.`,
+          description: rrStageId
+            ? 'Knockout bracket generated from group stage qualifiers.'
+            : `${players.length} players seeded into ${realMatches.length} match slots.`,
         })
       } catch (e: unknown) {
         toast({ title: 'Generation failed', description: (e as Error).message, variant: 'destructive' })
@@ -71,7 +82,12 @@ export function SingleKOStage({ tournament, players, matches, matchBase }: Props
         log.gamesDeleted   > 0 && `${log.gamesDeleted} game result${log.gamesDeleted !== 1 ? 's' : ''}`,
       ].filter(Boolean).join(', ')
       try {
-        await generateBracketAction(tournament.id)
+        if (rrStageId) {
+          const result = await generateKnockoutStage(tournament.id, rrStageId)
+          if (result.error) throw new Error(result.error)
+        } else {
+          await generateBracketAction(tournament.id)
+        }
         toast({
           title:       '✅ Bracket re-generated!',
           description: deletedDesc ? `Cleared: ${deletedDesc}.` : `${players.length} players redrawn.`,

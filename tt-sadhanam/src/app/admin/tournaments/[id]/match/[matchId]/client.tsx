@@ -57,10 +57,15 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
   const supabase                     = createClient()
 
   // Effective format: per-match override or tournament default
-  const tournamentFormat = tournament.format as MatchFormat
-  const [activeFormat, setActiveFormat] = useState<MatchFormat>(
-    (match as unknown as { match_format?: MatchFormat | null }).match_format ?? tournamentFormat,
-  )
+  const tournamentFormat = (['bo3', 'bo5', 'bo7'] as MatchFormat[]).includes(tournament.format as MatchFormat)
+    ? tournament.format as MatchFormat
+    : 'bo5'
+  const [activeFormat, setActiveFormat] = useState<MatchFormat>(() => {
+    const perMatch = (match as unknown as { match_format?: MatchFormat | null }).match_format
+    return (['bo3', 'bo5', 'bo7'] as MatchFormat[]).includes(perMatch as MatchFormat)
+      ? perMatch as MatchFormat
+      : tournamentFormat
+  })
 
   // Sync games from server on re-render
   useEffect(() => {

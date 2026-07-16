@@ -111,6 +111,7 @@ export function StagesTab({
               players={players}
               matches={koMatches}
               matchBase={matchBase}
+              rrStageId={rrStage?.id}
             />
           </div>
         </div>

@@ -130,7 +130,8 @@ export async function saveGameScore(
 
   // Use per-match format override if set, otherwise fall back to tournament default
   const tournamentFormat = (match.tournament as unknown as { format: MatchFormat }).format
-  const format: MatchFormat = (match as unknown as { match_format?: MatchFormat | null }).match_format ?? tournamentFormat
+  const rawFormat = (match as unknown as { match_format?: MatchFormat | null }).match_format ?? tournamentFormat
+  const format: MatchFormat = (['bo3', 'bo5', 'bo7'] as MatchFormat[]).includes(rawFormat) ? rawFormat : 'bo5'
   const player1Id = match.player1_id
   const player2Id = match.player2_id
   const isTeamSubmatch = match.match_kind === 'team_submatch'
@@ -583,7 +584,8 @@ export async function bulkSaveGameScores(
   }
 
   const tournamentFormat = (match.tournament as unknown as { format: MatchFormat }).format
-  const format: MatchFormat = (match as unknown as { match_format?: MatchFormat | null }).match_format ?? tournamentFormat
+  const rawFormatBulk = (match as unknown as { match_format?: MatchFormat | null }).match_format ?? tournamentFormat
+  const format: MatchFormat = (['bo3', 'bo5', 'bo7'] as MatchFormat[]).includes(rawFormatBulk) ? rawFormatBulk : 'bo5'
   const player1Id = match.player1_id
   const player2Id = match.player2_id
   const isTeamSubmatch = match.match_kind === 'team_submatch'
