@@ -112,6 +112,7 @@ export function StagesTab({
               matches={koMatches}
               matchBase={matchBase}
               rrStageId={rrStage?.id}
+              isRRFormat
             />
           </div>
         </div>

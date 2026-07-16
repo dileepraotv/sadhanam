@@ -27,15 +27,17 @@ interface Props {
   matchBase:   string
   /** When provided (single_round_robin format), generate KO from RR qualifiers only */
   rrStageId?:  string
+  /** True when this is embedded inside a single_round_robin event */
+  isRRFormat?: boolean
 }
 
-export function SingleKOStage({ tournament, players, matches, matchBase, rrStageId }: Props) {
+export function SingleKOStage({ tournament, players, matches, matchBase, rrStageId, isRRFormat }: Props) {
   const [isPending, startTransition] = useTransition()
   const { setLoading }               = useLoading()
   const [showReset, setShowReset]    = useState(false)
 
-  const isGenerated  = tournament.bracket_generated
-  const canGenerate  = players.length >= 2
+  const isGenerated  = tournament.bracket_generated || !!tournament.stage2_bracket_generated
+  const canGenerate  = isRRFormat ? !!rrStageId : players.length >= 2
   const hasResults   = matches.some(m => m.status === 'complete')
   const liveCount    = matches.filter(m => m.status === 'live').length
   const doneCount    = matches.filter(m => m.status === 'complete').length
@@ -108,11 +110,23 @@ export function SingleKOStage({ tournament, players, matches, matchBase, rrStage
         <div className="rounded-2xl border-2 border-dashed border-orange-300 dark:border-orange-700/50 bg-orange-50 dark:bg-orange-950/20 px-5 py-4 flex gap-4 items-start">
           <span className="text-2xl mt-0.5">👥</span>
           <div className="flex flex-col gap-1">
-            <p className="font-bold text-orange-700 dark:text-orange-400 text-sm">Step 1 of 2 — Add players first</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Go to the <strong className="text-foreground">Players</strong> tab and add at least 2 players.
-              Once done, come back here to generate the bracket.
-            </p>
+            {isRRFormat && !rrStageId ? (
+              <>
+                <p className="font-bold text-orange-700 dark:text-orange-400 text-sm">Complete the Group Stage first</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  The group stage must be set up and finalized before the knockout bracket can be generated.
+                  Configure groups above, play all matches, then click <strong className="text-foreground">Finalize Group Stage</strong>.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-orange-700 dark:text-orange-400 text-sm">Step 1 of 2 — Add players first</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Go to the <strong className="text-foreground">Players</strong> tab and add at least 2 players.
+                  Once done, come back here to generate the bracket.
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -117,36 +117,45 @@ export async function generateGroups(
 
   const totalPlayers = players.length
   // Maximum players per group: ceil(total / numGroups).
-  // With the "fill-then-spill" group count (floor(total/PPG)), this ceil is
-  // either PPG or PPG+1 — never less than PPG, never more than PPG+1.
   const globalCeil   = Math.ceil(totalPlayers / G)
 
-  // Round-robin counter so ties are distributed fairly across groups
-  let rrTie = 0
-
-  function pickBestGroup(playerId: string) {
-    // Eligible = groups still below the fair-share ceiling
-    const eligible = groupIds.filter(gid => groupAssign.get(gid)!.length < globalCeil)
-    // If all groups are at the ceil, allow any group (overflow gracefully)
-    const pool     = eligible.length ? eligible : groupIds
-
-    // Find the minimum current size in the pool
-    const minSize  = Math.min(...pool.map(gid => groupAssign.get(gid)!.length))
-    // All pool members at that minimum
-    const smallest = pool.filter(gid => groupAssign.get(gid)!.length === minSize)
-
-    // Round-robin among tied-smallest groups to avoid index bias
-    const chosen = smallest[rrTie % smallest.length]
-    rrTie++
-    groupAssign.get(chosen)!.push(playerId)
-  }
-
-  // Seeded players first (snake-style: top seeds land in separate groups)
+  // ── True snake seeding for seeded players ──────────────────────────────────
+  // Pass 1→G (left-to-right), then G→1 (right-to-left), alternating.
+  // e.g. 4 groups: seed1→A, seed2→B, seed3→C, seed4→D, seed5→D, seed6→C, …
   const remainingSeeded   = unassigned.filter(p => p.seed != null).sort((a, b) => a.seed! - b.seed!)
   const remainingUnseeded = unassigned.filter(p => p.seed == null)
   shuffleArray(remainingUnseeded, rngSeed)
 
-  for (const p of remainingSeeded)   pickBestGroup(p.id)
+  // Build snake order: repeat [0,1,…,G-1, G-1,…,0] until all seeded players placed
+  const snakeOrder: string[] = []
+  let pass = 0
+  while (snakeOrder.length < remainingSeeded.length) {
+    const isForward = pass % 2 === 0
+    const slice = isForward
+      ? groupIds.slice()                    // A → D
+      : groupIds.slice().reverse()          // D → A
+    for (const gid of slice) {
+      if (snakeOrder.length >= remainingSeeded.length) break
+      snakeOrder.push(gid)
+    }
+    pass++
+  }
+  for (let i = 0; i < remainingSeeded.length; i++) {
+    groupAssign.get(snakeOrder[i])!.push(remainingSeeded[i].id)
+  }
+
+  // ── Round-robin fill for unseeded players ─────────────────────────────────
+  let rrTie = 0
+  function pickBestGroup(playerId: string) {
+    const eligible = groupIds.filter(gid => groupAssign.get(gid)!.length < globalCeil)
+    const pool     = eligible.length ? eligible : groupIds
+    const minSize  = Math.min(...pool.map(gid => groupAssign.get(gid)!.length))
+    const smallest = pool.filter(gid => groupAssign.get(gid)!.length === minSize)
+    const chosen   = smallest[rrTie % smallest.length]
+    rrTie++
+    groupAssign.get(chosen)!.push(playerId)
+  }
+
   for (const p of remainingUnseeded) pickBestGroup(p.id)
 
   // ── Validate: every group must have ≥ 2 players to be playable ───────────
