@@ -264,21 +264,14 @@ export default async function AdminEventPage({ params, searchParams }: PageProps
                 </TabsContent>
                 {tournament.stage1_complete && (
                   <TabsContent value="knockout">
-                    {tournament.stage2_bracket_generated ? (
-                      <BracketView
-                        tournament={tournament}
-                        matches={koMatches}
-                        isAdmin
-                        matchBasePath={matchBase}
-                      />
-                    ) : (
-                      <SingleKOStage
-                        tournament={tournament}
-                        players={players}
-                        matches={koMatches}
-                        matchBase={matchBase}
-                      />
-                    )}
+                    <SingleKOStage
+                      tournament={tournament}
+                      players={players}
+                      matches={koMatches}
+                      matchBase={matchBase}
+                      rrStageId={rrStage?.id}
+                      isRRFormat
+                    />
                   </TabsContent>
                 )}
               </>
