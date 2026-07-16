@@ -177,6 +177,7 @@ export async function avoidSameGroupClashes(qualifiers: Qualifier[]): Promise<Qu
 export async function generateKnockoutStage(
   tournamentId: string,
   rrStageId:    string,
+  force = false,
 ): Promise<{ error?: string }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -192,7 +193,7 @@ export async function generateKnockoutStage(
 
   if (!t) return { error: 'Tournament not found' }
   if (!t.stage1_complete) return { error: 'Close Stage 1 before generating the knockout bracket.' }
-  if (t.stage2_bracket_generated) return { error: 'Knockout bracket already generated.' }
+  if (t.stage2_bracket_generated && !force) return { error: 'Knockout bracket already generated.' }
 
   // All four reads are independent — run in parallel
   const [rrStageRes, groupRes, playerRes, matchRes] = await Promise.all([

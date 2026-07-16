@@ -85,7 +85,7 @@ export function SingleKOStage({ tournament, players, matches, matchBase, rrStage
       ].filter(Boolean).join(', ')
       try {
         if (rrStageId) {
-          const result = await generateKnockoutStage(tournament.id, rrStageId)
+          const result = await generateKnockoutStage(tournament.id, rrStageId, true)
           if (result.error) throw new Error(result.error)
         } else {
           await generateBracketAction(tournament.id)

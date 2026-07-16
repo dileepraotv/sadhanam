@@ -589,14 +589,37 @@ export async function resetSingleKOBracket(
     return { error: 'Tournament not found' }
   }
 
-  // Collect stats first for the audit log
-  const { data: matchRows } = await supabase
-    .from('matches')
-    .select('id, status')
-    .eq('tournament_id', tournamentId)
+  // For RR+KO tournaments: only delete KO matches/stages, preserve RR group matches.
+  // For pure KO tournaments: delete all matches.
+  const { data: tournamentRow } = await supabase
+    .from('tournaments')
+    .select('format_type, stage1_complete')
+    .eq('id', tournamentId)
+    .single()
 
-  const matchIds             = (matchRows ?? []).map((m: { id: string }) => m.id)
-  const completedMatchCount  = (matchRows ?? []).filter((m: { status: string }) => m.status === 'complete').length
+  const isRRFormat = tournamentRow?.format_type === 'single_round_robin'
+  const rrActive   = isRRFormat && tournamentRow?.stage1_complete
+
+  // Load matches — for RR format only KO matches (not round_robin group matches)
+  let matchRows: { id: string; status: string }[] | null = null
+  if (rrActive) {
+    // Exclude RR group matches; keep knockout and null-kind matches
+    const { data } = await supabase
+      .from('matches')
+      .select('id, status')
+      .eq('tournament_id', tournamentId)
+      .neq('match_kind', 'round_robin')
+    matchRows = data
+  } else {
+    const { data } = await supabase
+      .from('matches')
+      .select('id, status')
+      .eq('tournament_id', tournamentId)
+    matchRows = data
+  }
+
+  const matchIds            = (matchRows ?? []).map((m: { id: string }) => m.id)
+  const completedMatchCount = (matchRows ?? []).filter((m: { status: string }) => m.status === 'complete').length
 
   let gameCount = 0
   if (matchIds.length > 0) {
@@ -609,13 +632,33 @@ export async function resetSingleKOBracket(
     await supabase.from('games').delete().in('match_id', matchIds)
   }
 
-  await supabase.from('matches').delete().eq('tournament_id', tournamentId)
+  if (matchIds.length > 0) {
+    await supabase.from('matches').delete().in('id', matchIds)
+  }
   await supabase.from('bracket_slots').delete().eq('tournament_id', tournamentId)
 
-  await supabase.from('tournaments').update({
-    bracket_generated: false,
-    status:            'setup',
-  }).eq('id', tournamentId)
+  // For RR+KO: delete the KO stage row and reset KO-specific flags only
+  if (rrActive) {
+    const { data: koStageRow } = await supabase
+      .from('stages')
+      .select('id')
+      .eq('tournament_id', tournamentId)
+      .eq('stage_type', 'knockout')
+      .maybeSingle()
+    if (koStageRow) {
+      await supabase.from('stages').delete().eq('id', koStageRow.id)
+    }
+    await supabase.from('tournaments').update({
+      bracket_generated:        false,
+      stage2_bracket_generated: false,
+      status:                   'active',
+    }).eq('id', tournamentId)
+  } else {
+    await supabase.from('tournaments').update({
+      bracket_generated: false,
+      status:            'setup',
+    }).eq('id', tournamentId)
+  }
 
   await revalidateTournamentPaths(supabase, tournamentId)
 
