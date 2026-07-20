@@ -58,12 +58,12 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
   const supabase                     = createClient()
 
   // Effective format: per-match override or tournament default
-  const tournamentFormat = (['bo3', 'bo5', 'bo7'] as MatchFormat[]).includes(tournament.format as MatchFormat)
+  const tournamentFormat = (['bo1', 'bo3', 'bo5', 'bo7'] as MatchFormat[]).includes(tournament.format as MatchFormat)
     ? tournament.format as MatchFormat
     : 'bo5'
   const [activeFormat, setActiveFormat] = useState<MatchFormat>(() => {
     const perMatch = (match as unknown as { match_format?: MatchFormat | null }).match_format
-    return (['bo3', 'bo5', 'bo7'] as MatchFormat[]).includes(perMatch as MatchFormat)
+    return (['bo1', 'bo3', 'bo5', 'bo7'] as MatchFormat[]).includes(perMatch as MatchFormat)
       ? perMatch as MatchFormat
       : tournamentFormat
   })
@@ -312,7 +312,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
             <div className="flex items-center gap-3 px-1 flex-wrap">
               <span className="text-xs font-semibold text-muted-foreground shrink-0">Format:</span>
               <div className="flex gap-1.5 flex-wrap">
-                {(sport === 'badminton' ? (['bo3'] as MatchFormat[]) : (['bo3', 'bo5', 'bo7'] as MatchFormat[])).map(fmt => (
+                {(['bo1', 'bo3', 'bo5', 'bo7'] as MatchFormat[]).map(fmt => (
                   <button
                     key={fmt}
                     onClick={() => activeFormat !== fmt && handleFormatChange(fmt)}

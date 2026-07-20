@@ -117,11 +117,12 @@ export interface CanAddGameResult {
 export interface FormatConfig {
   format:       MatchFormat
   gamesNeeded:  number   // ceil(K/2) — first to win this many games wins the match
-  maxGames:     number   // K (3, 5, or 7)
+  maxGames:     number   // K (1, 3, 5, or 7)
   label:        string
 }
 
 export const FORMAT_CONFIGS: Record<MatchFormat, FormatConfig> = {
+  bo1: { format: 'bo1', gamesNeeded: 1, maxGames: 1, label: 'Best of 1' },
   bo3: { format: 'bo3', gamesNeeded: 2, maxGames: 3, label: 'Best of 3' },
   bo5: { format: 'bo5', gamesNeeded: 3, maxGames: 5, label: 'Best of 5' },
   bo7: { format: 'bo7', gamesNeeded: 4, maxGames: 7, label: 'Best of 7' },

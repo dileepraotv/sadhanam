@@ -14,7 +14,7 @@ export function formatDate(dateStr: string | null): string {
 }
 
 export function formatFormatLabel(format: MatchFormat): string {
-  const labels = { bo3: 'Best of 3', bo5: 'Best of 5', bo7: 'Best of 7' }
+  const labels = { bo1: 'Best of 1', bo3: 'Best of 3', bo5: 'Best of 5', bo7: 'Best of 7' }
   return labels[format]
 }
 

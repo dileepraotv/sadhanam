@@ -92,16 +92,17 @@ describe('Utility Functions', () => {
 
   describe('Match format validation', () => {
     it('should validate best-of formats', () => {
-      const formats = ['bo3', 'bo5', 'bo7']
+      const formats = ['bo1', 'bo3', 'bo5', 'bo7']
       
       formats.forEach(format => {
-        expect(['bo3', 'bo5', 'bo7']).toContain(format)
+        expect(['bo1', 'bo3', 'bo5', 'bo7']).toContain(format)
       })
     })
 
     it('should calculate games required for match format', () => {
       const getWinsRequired = (format: string): number => {
         switch (format) {
+          case 'bo1': return 1
           case 'bo3': return 2
           case 'bo5': return 3
           case 'bo7': return 4
@@ -109,6 +110,7 @@ describe('Utility Functions', () => {
         }
       }
 
+      expect(getWinsRequired('bo1')).toBe(1)
       expect(getWinsRequired('bo3')).toBe(2)
       expect(getWinsRequired('bo5')).toBe(3)
       expect(getWinsRequired('bo7')).toBe(4)

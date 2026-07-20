@@ -11,7 +11,7 @@ import type { Match, Game, SportType } from '@/lib/types'
 import { MatchCard } from './MatchCard'
 import { Check, Trophy, AlertTriangle } from 'lucide-react'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
-import { SPORT_RULES } from '@/lib/scoring/types'
+import { SPORT_RULES, FORMAT_CONFIGS } from '@/lib/scoring/types'
 import { toast } from '@/components/ui/toaster'
 
 interface BracketViewProps {
@@ -515,7 +515,7 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
   const [local,   setLocal]   = useState<Record<number,{s1:string;s2:string}>>({})
   const [saving,  setSaving]  = useState(false)
   const [loading, setLoading] = useState(true)
-  const [format,  setFormat]  = useState<'bo3'|'bo5'|'bo7'>('bo5')
+  const [format,  setFormat]  = useState<'bo1'|'bo3'|'bo5'|'bo7'>('bo5')
   const [matchStatus, setMatchStatus] = useState<string>('pending')
   const [p1Id,    setP1Id]    = useState<string|null>(null)
   const [p2Id,    setP2Id]    = useState<string|null>(null)
@@ -544,7 +544,7 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
       for (const g of gs) init[g.game_number] = { s1: String(g.score1 ?? ''), s2: String(g.score2 ?? '') }
       setLocal(init)
       setSaveError(null)
-      if (mRes.data?.match_format) setFormat(mRes.data.match_format as 'bo3'|'bo5'|'bo7')
+      if (mRes.data?.match_format) setFormat(mRes.data.match_format as 'bo1'|'bo3'|'bo5'|'bo7')
       if (mRes.data?.player1_id)   setP1Id(mRes.data.player1_id)
       if (mRes.data?.player2_id)   setP2Id(mRes.data.player2_id)
       if (mRes.data?.status)       setMatchStatus(mRes.data.status)
@@ -555,9 +555,9 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
 
   useEffect(() => { load() }, [load])
 
-  const maxG = format === 'bo3' ? 3 : format === 'bo7' ? 7 : 5
+  const maxG = FORMAT_CONFIGS[format].maxGames
 
-  const handleFormatChange = async (f: 'bo3'|'bo5'|'bo7') => {
+  const handleFormatChange = async (f: 'bo1'|'bo3'|'bo5'|'bo7') => {
     setFormat(f)
     const { updateMatchFormat } = await import('@/lib/actions/matches')
     await updateMatchFormat(matchId, f)
@@ -632,13 +632,13 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
 
       {/* Format selector */}
       <div className="flex items-center gap-1 pt-1">
-        {(sport === 'badminton' ? (['bo3'] as const) : (['bo3','bo5','bo7'] as const)).map(f => (
+        {(['bo1','bo3','bo5','bo7'] as const).map(f => (
           <button key={f} onClick={() => handleFormatChange(f)}
             className={cn(
               'px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-colors',
               format === f ? 'bg-orange-500 text-white' : 'text-muted-foreground hover:text-foreground',
             )}>
-            {f === 'bo3' ? 'Best of 3' : f === 'bo5' ? 'Best of 5' : 'Best of 7'}
+            {FORMAT_CONFIGS[f].label}
           </button>
         ))}
       </div>

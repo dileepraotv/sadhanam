@@ -20,7 +20,7 @@ import { createClient } from '@/lib/supabase/client'
 import { saveGameScore, declareMatchWinner, updateMatchFormat } from '@/lib/actions/matches'
 import type { MatchFormat, SportType } from '@/lib/types'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
-import { SPORT_RULES } from '@/lib/scoring/types'
+import { SPORT_RULES, FORMAT_CONFIGS } from '@/lib/scoring/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -130,7 +130,7 @@ export function RubberScorer({
     if (submatch.match_id) await updateMatchFormat(submatch.match_id, fmt)
   }
 
-  const maxGames = activeFormat === 'bo3' ? 3 : activeFormat === 'bo7' ? 7 : 5
+  const maxGames = FORMAT_CONFIGS[activeFormat].maxGames
 
   const handleScore = (gn: number, field: 'a' | 'b', val: string) => {
     setLocal(prev => {
@@ -231,7 +231,7 @@ export function RubberScorer({
           <span className="text-[10px] font-semibold text-muted-foreground mr-1">
             {sport === 'badminton' ? '🏸' : '🏓'} Race to {sportRules.unitWinThreshold}
           </span>
-          {(sport === 'badminton' ? (['bo3'] as MatchFormat[]) : (['bo3','bo5','bo7'] as MatchFormat[])).map(fmt => (
+          {(['bo1', 'bo3', 'bo5', 'bo7'] as MatchFormat[]).map(fmt => (
             <button
               key={fmt}
               onClick={() => showEntry && handleFormatChange(fmt)}
@@ -244,7 +244,7 @@ export function RubberScorer({
                 !showEntry && 'pointer-events-none',
               )}
             >
-              {fmt === 'bo3' ? 'Best of 3' : fmt === 'bo5' ? 'Best of 5' : 'Best of 7'}
+              {FORMAT_CONFIGS[fmt].label}
             </button>
           ))}
         </div>
@@ -253,7 +253,7 @@ export function RubberScorer({
             <Check className="h-3 w-3" /> {winnerName} wins {p1Wins}–{p2Wins}
             <span className="text-muted-foreground font-normal">·</span>
             <span className="text-muted-foreground font-normal">
-              {activeFormat === 'bo3' ? 'Best of 3' : activeFormat === 'bo7' ? 'Best of 7' : 'Best of 5'}
+              {FORMAT_CONFIGS[activeFormat].label}
             </span>
           </span>
         )}

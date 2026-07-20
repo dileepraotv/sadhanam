@@ -2,7 +2,7 @@
 
 export type TournamentStatus = 'setup' | 'active' | 'complete'
 export type MatchStatus      = 'pending' | 'live' | 'complete' | 'bye'
-export type MatchFormat      = 'bo3' | 'bo5' | 'bo7'
+export type MatchFormat      = 'bo1' | 'bo3' | 'bo5' | 'bo7'
 
 /**
  * Sport played in a tournament. Lives on `tournaments` only — a championship
@@ -222,6 +222,7 @@ export interface Qualifier {
 
 /** Maps format code to games-to-win and max games */
 export const FORMAT_CONFIG: Record<MatchFormat, { gamesNeeded: number; maxGames: number; label: string }> = {
+  bo1: { gamesNeeded: 1, maxGames: 1, label: 'Best of 1' },
   bo3: { gamesNeeded: 2, maxGames: 3, label: 'Best of 3' },
   bo5: { gamesNeeded: 3, maxGames: 5, label: 'Best of 5' },
   bo7: { gamesNeeded: 4, maxGames: 7, label: 'Best of 7' },

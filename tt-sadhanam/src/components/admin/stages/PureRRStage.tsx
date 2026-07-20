@@ -15,7 +15,7 @@ import { useTransition, useState, useMemo, useRef, useCallback, useEffect } from
 import { useRouter } from 'next/navigation'
 import { RotateCcw, RefreshCw, Trophy, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
-import { SPORT_RULES } from '@/lib/scoring/types'
+import { SPORT_RULES, FORMAT_CONFIGS } from '@/lib/scoring/types'
 import { matchStatusClasses } from '@/components/shared/MatchUI'
 import { cn } from '@/lib/utils'
 import type { Tournament, Player, Match, Game, SportType } from '@/lib/types'
@@ -411,7 +411,7 @@ function PureRRInlineScorer({ matchId, p1Name, p2Name, sport = 'table_tennis', o
   const [local,   setLocal]  = useState<Record<number,{s1:string;s2:string}>>({})
   const [saving,  setSaving] = useState(false)
   const [loading, setLoad_]  = useState(true)
-  const [fmt,     setFmt]    = useState<'bo3'|'bo5'|'bo7'>('bo5')
+  const [fmt,     setFmt]    = useState<'bo1'|'bo3'|'bo5'|'bo7'>('bo5')
   const [matchStatus, setMatchStatus] = useState<string>('pending')
   const [p1Id,    setP1Id]   = useState<string|null>(null)
   const [p2Id,    setP2Id]   = useState<string|null>(null)
@@ -439,7 +439,7 @@ function PureRRInlineScorer({ matchId, p1Name, p2Name, sport = 'table_tennis', o
     for (const g of gs) init[g.game_number] = { s1: String(g.score1??''), s2: String(g.score2??'') }
     setLocal(init)
     setSaveError(null)
-    if (mR.data?.match_format) setFmt(mR.data.match_format as 'bo3'|'bo5'|'bo7')
+    if (mR.data?.match_format) setFmt(mR.data.match_format as 'bo1'|'bo3'|'bo5'|'bo7')
     if (mR.data?.player1_id)   setP1Id(mR.data.player1_id)
     if (mR.data?.player2_id)   setP2Id(mR.data.player2_id)
     if (mR.data?.status)       setMatchStatus(mR.data.status)
@@ -448,7 +448,7 @@ function PureRRInlineScorer({ matchId, p1Name, p2Name, sport = 'table_tennis', o
 
   useEffect(() => { load() }, [load])
 
-  const maxG = fmt==='bo3'?3:fmt==='bo7'?7:5
+  const maxG = FORMAT_CONFIGS[fmt].maxGames
 
   const handleChange = (gn: number, side: 's1'|'s2', val: string) =>
     setLocal(prev => ({ ...prev, [gn]: { ...prev[gn]??{s1:'',s2:''}, [side]: val } }))
@@ -510,10 +510,10 @@ function PureRRInlineScorer({ matchId, p1Name, p2Name, sport = 'table_tennis', o
         <span>Race to {sportRules.unitWinThreshold}</span>
       </div>
       <div className="flex items-center gap-1">
-        {(sport === 'badminton' ? (['bo3'] as const) : (['bo3','bo5','bo7'] as const)).map(f=>(
+        {(['bo1','bo3','bo5','bo7'] as const).map(f=>(
           <button key={f} onClick={async()=>{setFmt(f);const{updateMatchFormat}=await import('@/lib/actions/matches');await updateMatchFormat(matchId,f)}}
             className={cn('px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-colors',fmt===f?'bg-orange-500 text-white':'text-muted-foreground hover:text-foreground')}>
-            {f==='bo3'?'Best of 3':f==='bo5'?'Best of 5':'Best of 7'}
+            {FORMAT_CONFIGS[f].label}
           </button>
         ))}
       </div>

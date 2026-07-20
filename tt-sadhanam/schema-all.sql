@@ -29,7 +29,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE match_status AS ENUM ('pending','live','complete','bye');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE match_format AS ENUM ('bo3','bo5','bo7');
+DO $$ BEGIN CREATE TYPE match_format AS ENUM ('bo1','bo3','bo5','bo7');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS matches (
   loser_next_match_id  UUID         NULL REFERENCES matches(id) ON DELETE SET NULL,
   loser_next_slot      SMALLINT     NULL CHECK (loser_next_slot IN (1, 2)),
   -- v7 per-match format override (null = use tournament default)
-  match_format         TEXT         NULL CHECK (match_format IN ('bo3','bo5','bo7')),
+  match_format         TEXT         NULL CHECK (match_format IN ('bo1','bo3','bo5','bo7')),
   UNIQUE (tournament_id, round, match_number)
 );
 CREATE INDEX IF NOT EXISTS matches_stage_id_idx   ON matches (stage_id)         WHERE stage_id IS NOT NULL;

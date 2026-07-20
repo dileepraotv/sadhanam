@@ -208,7 +208,7 @@ export function validateGameScore(input: GameScoreInput, sport: SportType = DEFA
  * show them as "surplus" and give the admin a chance to delete them.
  *
  * @param games       Raw game rows from the database (may be empty).
- * @param format      The tournament format ('bo3' | 'bo5' | 'bo7').
+ * @param format      The tournament format ('bo1' | 'bo3' | 'bo5' | 'bo7').
  * @param player1Id   UUID of player 1 (used to interpret winner_id).
  * @param player2Id   UUID of player 2.
  */

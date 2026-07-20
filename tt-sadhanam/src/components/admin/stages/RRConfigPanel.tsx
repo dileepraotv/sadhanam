@@ -167,6 +167,7 @@ export function RRConfigPanel({ players, onSubmit, isPending, existing, sport }:
             <Select value={matchFormat} onValueChange={v => setMatchFormat(v as MatchFormat)}>
               <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="bo1">Best of 1</SelectItem>
                 <SelectItem value="bo3">Best of 3</SelectItem>
                 <SelectItem value="bo5">Best of 5</SelectItem>
                 <SelectItem value="bo7">Best of 7</SelectItem>

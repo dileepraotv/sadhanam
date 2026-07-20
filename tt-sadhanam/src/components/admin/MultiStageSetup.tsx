@@ -98,7 +98,7 @@ export function MultiStageSetup({
   // Config form state (only shown in not_configured phase)
   const [perGroup,      setPerGroup]      = useState('4')   // players per group → groups auto-calculated
   const [advanceCount,  setAdvanceCount]  = useState('2')
-  const [matchFormat,   setMatchFormat]   = useState<'bo3' | 'bo5' | 'bo7'>('bo3')
+  const [matchFormat,   setMatchFormat]   = useState<'bo1' | 'bo3' | 'bo5' | 'bo7'>('bo3')
   const [allowThird,    setAllowThird]    = useState(false)
   const [thirdCount,    setThirdCount]    = useState('2')
 
@@ -517,7 +517,7 @@ function ConfigSummary({ cfg, players }: { cfg: RRStageConfig; players: Player[]
 interface ConfigFormProps {
   perGroup:      string;   setPerGroup:     (v: string) => void
   advanceCount:  string;   setAdvanceCount: (v: string) => void
-  matchFormat:   'bo3'|'bo5'|'bo7'; setMatchFormat: (v: 'bo3'|'bo5'|'bo7') => void
+  matchFormat:   'bo1'|'bo3'|'bo5'|'bo7'; setMatchFormat: (v: 'bo1'|'bo3'|'bo5'|'bo7') => void
   allowThird:    boolean;  setAllowThird:   (v: boolean) => void
   thirdCount:    string;   setThirdCount:   (v: string) => void
   players:       Player[]
@@ -586,9 +586,10 @@ function ConfigForm({
 
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Match format (groups)</Label>
-            <Select value={matchFormat} onValueChange={v => setMatchFormat(v as 'bo3'|'bo5'|'bo7')}>
+            <Select value={matchFormat} onValueChange={v => setMatchFormat(v as 'bo1'|'bo3'|'bo5'|'bo7')}>
               <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="bo1">Best of 1</SelectItem>
                 <SelectItem value="bo3">Best of 3</SelectItem>
                 <SelectItem value="bo5">Best of 5</SelectItem>
                 <SelectItem value="bo7">Best of 7</SelectItem>
