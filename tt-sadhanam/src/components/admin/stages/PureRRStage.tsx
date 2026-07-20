@@ -15,9 +15,10 @@ import { useTransition, useState, useMemo, useRef, useCallback, useEffect } from
 import { useRouter } from 'next/navigation'
 import { RotateCcw, RefreshCw, Trophy, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
+import { SPORT_RULES } from '@/lib/scoring/types'
 import { matchStatusClasses } from '@/components/shared/MatchUI'
 import { cn } from '@/lib/utils'
-import type { Tournament, Player, Match, Game } from '@/lib/types'
+import type { Tournament, Player, Match, Game, SportType } from '@/lib/types'
 import type { PlayerStanding } from '@/lib/roundrobin/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/index'
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function PureRRStage({ tournament, players, matches, games, matchBase }: Props) {
+  const sport: SportType = tournament.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
   const { setLoading }               = useLoading()
@@ -225,7 +227,7 @@ export function PureRRStage({ tournament, players, matches, games, matchBase }: 
               {isOpen && (
                 <div className="px-4 pb-4 flex flex-col gap-2">
                   {rMatches.filter(m => m.status !== 'bye').map(m => (
-                    <PureRRFixtureRow key={m.id} match={m} matchBase={matchBase} />
+                    <PureRRFixtureRow key={m.id} match={m} matchBase={matchBase} sport={sport} />
                   ))}
                 </div>
               )}
@@ -328,7 +330,7 @@ function LeagueStandingsTable({ standings }: { standings: PlayerStanding[] }) {
 
 
 // ── PureRRFixtureRow — inline scorer with render-time validation ──────────────
-function PureRRFixtureRow({ match: m, matchBase }: { match: Match; matchBase: string }) {
+function PureRRFixtureRow({ match: m, matchBase, sport = 'table_tennis' }: { match: Match; matchBase: string; sport?: SportType }) {
   const [expanded, setExpanded] = useState(false)
   const isBye      = m.status === 'bye'
   const isComplete = m.status === 'complete'
@@ -392,7 +394,7 @@ function PureRRFixtureRow({ match: m, matchBase }: { match: Match; matchBase: st
       </div>
       {expanded && (
         <div className="border-t border-border/40 px-3 pb-3 pt-2">
-          <PureRRInlineScorer matchId={m.id} p1Name={m.player1?.name ?? 'P1'} p2Name={m.player2?.name ?? 'P2'} onSaved={() => setExpanded(false)} />
+          <PureRRInlineScorer matchId={m.id} p1Name={m.player1?.name ?? 'P1'} p2Name={m.player2?.name ?? 'P2'} sport={sport} onSaved={() => setExpanded(false)} />
         </div>
       )}
     </div>
@@ -400,9 +402,10 @@ function PureRRFixtureRow({ match: m, matchBase }: { match: Match; matchBase: st
 }
 
 // ── PureRRInlineScorer — render-time validation, no stale state ───────────────
-function PureRRInlineScorer({ matchId, p1Name, p2Name, onSaved }: {
-  matchId: string; p1Name: string; p2Name: string; onSaved: () => void
+function PureRRInlineScorer({ matchId, p1Name, p2Name, sport = 'table_tennis', onSaved }: {
+  matchId: string; p1Name: string; p2Name: string; sport?: SportType; onSaved: () => void
 }) {
+  const sportRules = SPORT_RULES[sport]
   const router = useRouter()
   const [games,   setGames]  = useState<{id:string;game_number:number;score1:number;score2:number;winner_id:string|null}[]>([])
   const [local,   setLocal]  = useState<Record<number,{s1:string;s2:string}>>({})
@@ -459,7 +462,7 @@ function PureRRInlineScorer({ matchId, p1Name, p2Name, onSaved }: {
     for (const {gn,sc} of entries) {
       const s1=parseInt(sc!.s1,10), s2=parseInt(sc!.s2,10)
       if (isNaN(s1)||isNaN(s2)) { setSaveError(`Game ${gn}: enter valid numbers`); setSaving(false); return }
-      const vr = validateGameScore({score1:s1,score2:s2})
+      const vr = validateGameScore({score1:s1,score2:s2}, sport)
       if (!vr.ok) { setSaveError(`Game ${gn}: ${formatValidationErrors(vr)}`); setSaving(false); return }
     }
     const { bulkSaveGameScores } = await import('@/lib/actions/matches')
@@ -493,7 +496,7 @@ function PureRRInlineScorer({ matchId, p1Name, p2Name, onSaved }: {
     if (s1str!==''&&s2str!=='') {
       const s1=parseInt(s1str,10), s2=parseInt(s2str,10)
       if (!isNaN(s1)&&!isNaN(s2)) {
-        const vr=validateGameScore({score1:s1,score2:s2})
+        const vr=validateGameScore({score1:s1,score2:s2}, sport)
         gv[gn]={valid:vr.ok,errorMsg:vr.ok?'':vr.errors[0]?.message??'Invalid score'}
       } else gv[gn]={valid:true,errorMsg:''}
     } else gv[gn]={valid:true,errorMsg:''}
@@ -501,8 +504,13 @@ function PureRRInlineScorer({ matchId, p1Name, p2Name, onSaved }: {
 
   return (
     <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+        <span>{sport === 'badminton' ? '🏸 Badminton' : '🏓 Table Tennis'}</span>
+        <span className="opacity-40">·</span>
+        <span>Race to {sportRules.unitWinThreshold}</span>
+      </div>
       <div className="flex items-center gap-1">
-        {(['bo3','bo5','bo7'] as const).map(f=>(
+        {(sport === 'badminton' ? (['bo3'] as const) : (['bo3','bo5','bo7'] as const)).map(f=>(
           <button key={f} onClick={async()=>{setFmt(f);const{updateMatchFormat}=await import('@/lib/actions/matches');await updateMatchFormat(matchId,f)}}
             className={cn('px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-colors',fmt===f?'bg-orange-500 text-white':'text-muted-foreground hover:text-foreground')}>
             {f==='bo3'?'Best of 3':f==='bo5'?'Best of 5':'Best of 7'}

@@ -13,10 +13,11 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
+import { SPORT_RULES } from '@/lib/scoring/types'
 import { MatchCard } from '@/components/bracket/MatchCard'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toaster'
-import type { Match } from '@/lib/types'
+import type { Match, SportType } from '@/lib/types'
 import type { GroupStandings } from '@/lib/roundrobin/types'
 
 // Inline winner trophy (avoids importing full WinnerTrophy to keep bundle lean)
@@ -37,6 +38,7 @@ interface Props {
   allowBestThird?: boolean
   bestThirdCount?: number
   initialGroup?:  number
+  sport?:         SportType
 }
 
 export function GroupStandingsTable({
@@ -48,6 +50,7 @@ export function GroupStandingsTable({
   allowBestThird = false,
   bestThirdCount = 0,
   initialGroup = 0,
+  sport = 'table_tennis',
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(Math.min(initialGroup, Math.max(0, standings.length - 1)))
 
@@ -260,7 +263,7 @@ export function GroupStandingsTable({
                     {sortedDay
                       .filter(m => m.status !== 'pending' || m.player1_id || m.player2_id)
                       .map(m => (
-                        <FixtureRow key={m.id} match={m} matchBase={matchBase} isAdmin={isAdmin} />
+                        <FixtureRow key={m.id} match={m} matchBase={matchBase} isAdmin={isAdmin} sport={sport} />
                       ))}
                   </div>
                 </div>
@@ -288,10 +291,11 @@ function EmptyFixtures() {
 
 // ── Fixture row ────────────────────────────────────────────────────────────────
 
-function FixtureRow({ match: m, matchBase, isAdmin }: {
+function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
   match:     Match
   matchBase: string
   isAdmin:   boolean
+  sport?:    SportType
 }) {
   const [expanded, setExpanded] = useState(false)
   const isBye      = m.status === 'bye'
@@ -412,6 +416,7 @@ function FixtureRow({ match: m, matchBase, isAdmin }: {
             matchId={m.id}
             player1Name={p1?.name ?? 'Player 1'}
             player2Name={p2?.name ?? 'Player 2'}
+            sport={sport}
             onSaved={() => { setExpanded(false) }}
           />
         </div>
@@ -425,12 +430,14 @@ function FixtureRow({ match: m, matchBase, isAdmin }: {
 // SingleMatchInlineScorer in BracketView). No scoreErrors state — errors
 // appear the instant both scores are typed, with zero React batching lag.
 
-function InlineMatchScorer({ matchId, player1Name, player2Name, onSaved }: {
+function InlineMatchScorer({ matchId, player1Name, player2Name, sport = 'table_tennis', onSaved }: {
   matchId:     string
   player1Name: string
   player2Name: string
+  sport?:      SportType
   onSaved:     () => void
 }) {
+  const sportRules = SPORT_RULES[sport]
   const router = useRouter()
   const [games,       setGames]     = useState<{id:string;game_number:number;score1:number;score2:number;winner_id:string|null}[]>([])
   const [local,       setLocal]     = useState<Record<number,{s1:string;s2:string}>>({})
@@ -488,7 +495,7 @@ function InlineMatchScorer({ matchId, player1Name, player2Name, onSaved }: {
     for (const {gn, sc} of entries) {
       const s1 = parseInt(sc!.s1,10), s2 = parseInt(sc!.s2,10)
       if (isNaN(s1)||isNaN(s2)) { setSaveError(`Game ${gn}: enter valid numbers`); setSaving(false); return }
-      const vr = validateGameScore({ score1: s1, score2: s2 })
+      const vr = validateGameScore({ score1: s1, score2: s2 }, sport)
       if (!vr.ok) { setSaveError(`Game ${gn}: ${formatValidationErrors(vr)}`); setSaving(false); return }
     }
     const { bulkSaveGameScores } = await import('@/lib/actions/matches')
@@ -526,7 +533,7 @@ function InlineMatchScorer({ matchId, player1Name, player2Name, onSaved }: {
     if (s1str !== '' && s2str !== '') {
       const s1 = parseInt(s1str,10), s2 = parseInt(s2str,10)
       if (!isNaN(s1) && !isNaN(s2)) {
-        const vr = validateGameScore({ score1:s1, score2:s2 })
+        const vr = validateGameScore({ score1:s1, score2:s2 }, sport)
         gameValidation[gn] = { valid: vr.ok, errorMsg: vr.ok ? '' : vr.errors[0]?.message ?? 'Invalid score' }
       } else { gameValidation[gn] = { valid:true, errorMsg:'' } }
     } else { gameValidation[gn] = { valid:true, errorMsg:'' } }
@@ -534,9 +541,16 @@ function InlineMatchScorer({ matchId, player1Name, player2Name, onSaved }: {
 
   return (
     <div className="flex flex-col gap-2">
+      {/* Sport + format context */}
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+        <span>{sport === 'badminton' ? '🏸 Badminton' : '🏓 Table Tennis'}</span>
+        <span className="opacity-40">·</span>
+        <span>Race to {sportRules.unitWinThreshold}</span>
+      </div>
+
       {/* Format pills */}
       <div className="flex items-center gap-1">
-        {(['bo3','bo5','bo7'] as const).map(f => (
+        {(sport === 'badminton' ? (['bo3'] as const) : (['bo3','bo5','bo7'] as const)).map(f => (
           <button key={f}
             onClick={async () => { setFormat(f); const { updateMatchFormat } = await import('@/lib/actions/matches'); await updateMatchFormat(matchId, f) }}
             className={cn('px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-colors',

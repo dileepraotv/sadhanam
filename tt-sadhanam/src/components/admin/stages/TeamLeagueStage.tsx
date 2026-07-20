@@ -28,6 +28,7 @@ import {
   generateTeamSchedule, resetTeamLeague, updateSubmatchPlayers,
   batchUpdateSubmatchPlayers, generateTeamRRKnockout, generateTeamKOBracket,
   generateTeamSwaythlingBracket,
+  generateThomasCupBracket, generateUberCupBracket, generateSudirmanCupBracket,
 } from '@/lib/actions/teamLeague'
 import { useRouter } from 'next/navigation'
 import { RubberScorer } from '@/components/shared/RubberScorer'
@@ -206,6 +207,10 @@ export function TeamLeagueStage({ tournament, matchBase, view: _view, showSeedIn
   const ft = tournament.format_type ?? 'team_league'
   const isKOFormat       = ft === 'team_league_ko'
   const isSwaythling     = ft === 'team_league_swaythling'
+  const isThomas         = ft === 'team_thomas'
+  const isUber           = ft === 'team_uber'
+  const isSudirman       = ft === 'team_sudirman'
+  const isBadmintonCup   = isThomas || isUber || isSudirman
   const isRRKO           = ft === 'team_league'
   const hasKO            = teamMatches.some(m => m.round >= 900)
   const rrMatches        = teamMatches.filter(m => m.round < 900)
@@ -213,11 +218,12 @@ export function TeamLeagueStage({ tournament, matchBase, view: _view, showSeedIn
   const allRRDone        = rrMatches.length > 0 && rrMatches.every(m => m.status === 'complete')
 
   // Internal tab state — mirrors TeamGroupKOStage pattern
-  const formatLabel = isKOFormat ? 'Corbillon Cup' : isSwaythling ? 'Swaythling Cup' : 'Team League'
+  const formatLabel = isKOFormat ? 'Corbillon Cup' : isSwaythling ? 'Swaythling Cup'
+    : isThomas ? 'Thomas Cup' : isUber ? 'Uber Cup' : isSudirman ? 'Sudirman Cup' : 'Team League'
   const tabs = [
     { key: 'teams',    label: 'Teams' },
     { key: 'schedule', label: isRRKO ? 'Schedule' : 'Fixtures', disabled: !isGenerated },
-    ...(isRRKO || isKOFormat || isSwaythling
+    ...(isRRKO || isKOFormat || isSwaythling || isBadmintonCup
       ? [{ key: 'knockout', label: 'Knockout', disabled: !hasKO }]
       : []),
   ] as const
@@ -645,7 +651,10 @@ function TeamSetupView({
 
   const isKOFormat = tournament.format_type === 'team_league_ko'
   const isSwaythlingFormat = tournament.format_type === 'team_league_swaythling'
-  const isAnyKOFormat = isKOFormat || isSwaythlingFormat
+  const isThomasFormat   = tournament.format_type === 'team_thomas'
+  const isUberFormat     = tournament.format_type === 'team_uber'
+  const isSudirmanFormat = tournament.format_type === 'team_sudirman'
+  const isAnyKOFormat = isKOFormat || isSwaythlingFormat || isThomasFormat || isUberFormat || isSudirmanFormat
 
   const handleGenerate = () => {
     setLoading(true)
@@ -654,6 +663,12 @@ function TeamSetupView({
         ? await generateTeamKOBracket(tournament.id)
         : isSwaythlingFormat
         ? await generateTeamSwaythlingBracket(tournament.id)
+        : isThomasFormat
+        ? await generateThomasCupBracket(tournament.id)
+        : isUberFormat
+        ? await generateUberCupBracket(tournament.id)
+        : isSudirmanFormat
+        ? await generateSudirmanCupBracket(tournament.id)
         : await generateTeamSchedule(tournament.id)
       setLoading(false)
       if (res.error) {
@@ -722,7 +737,7 @@ function TeamSetupView({
           <Button onClick={handleGenerate} disabled={isPending || !canGenerate} className="gap-2 shrink-0">
             {isPending
               ? <><span className="tt-spinner tt-spinner-sm" /> Generating…</>
-              : <><PlayCircle className="h-4 w-4" /> {isKOFormat ? 'Generate Corbillon Bracket' : isSwaythlingFormat ? 'Generate Swaythling Bracket' : 'Generate Schedule'}</>
+              : <><PlayCircle className="h-4 w-4" /> {isKOFormat ? 'Generate Corbillon Bracket' : isSwaythlingFormat ? 'Generate Swaythling Bracket' : isThomasFormat ? 'Generate Thomas Cup Bracket' : isUberFormat ? 'Generate Uber Cup Bracket' : isSudirmanFormat ? 'Generate Sudirman Cup Bracket' : 'Generate Schedule'}</>
             }
           </Button>
         </div>
@@ -875,7 +890,7 @@ function TeamSetupView({
         <Button onClick={handleGenerate} disabled={isPending} size="lg" className="gap-2 w-full">
           {isPending
             ? <><span className="tt-spinner tt-spinner-sm" /> Generating…</>
-            : <><PlayCircle className="h-5 w-5" /> {isKOFormat ? 'Generate Corbillon Cup Bracket' : isSwaythlingFormat ? 'Generate Swaythling Cup Bracket' : 'Generate Team Schedule'}</>
+            : <><PlayCircle className="h-5 w-5" /> {isKOFormat ? 'Generate Corbillon Cup Bracket' : isSwaythlingFormat ? 'Generate Swaythling Cup Bracket' : isThomasFormat ? 'Generate Thomas Cup Bracket' : isUberFormat ? 'Generate Uber Cup Bracket' : isSudirmanFormat ? 'Generate Sudirman Cup Bracket' : 'Generate Team Schedule'}</>
           }
         </Button>
       )}
@@ -1411,7 +1426,11 @@ function TeamKOBracketUI({
     return `Round of ${Math.pow(2, fromEnd)}`
   }
 
-  const formatTitle = isCorbillon ? 'Corbillon Cup' : isSwaythling ? 'Swaythling Cup' : isRRKO ? 'Knockout Phase' : 'Team Knockout'
+  const cupFormatTitles: Record<string, string> = {
+    team_league_ko: 'Corbillon Cup', team_league_swaythling: 'Swaythling Cup',
+    team_thomas: 'Thomas Cup', team_uber: 'Uber Cup', team_sudirman: 'Sudirman Cup',
+  }
+  const formatTitle = cupFormatTitles[tournament.format_type ?? ''] ?? (isRRKO ? 'Knockout Phase' : 'Team Knockout')
 
   return (
     <div className="flex flex-col gap-0">
@@ -1483,6 +1502,7 @@ function TeamKOBracketUI({
             matchBase={matchBase}
             tournamentId={tournamentId}
             isCorbillon={isCorbillon}
+            sport={tournament.sport_type}
             highlightFix={highlightFix as string}
             loadData={loadData}
           />
@@ -1500,12 +1520,13 @@ function TeamKOBracketUI({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TeamMatchBracketCard({
-  teamMatch, matchBase, tournamentId, isCorbillon, highlightFix, loadData,
+  teamMatch, matchBase, tournamentId, isCorbillon, sport, highlightFix, loadData,
 }: {
   teamMatch:    TeamMatchRich
   matchBase:    string
   tournamentId: string
   isCorbillon:  boolean
+  sport?:       'table_tennis' | 'badminton'
   highlightFix?: string
   loadData?:    (silent?: boolean) => Promise<void>
 }) {
@@ -1848,7 +1869,8 @@ function TeamMatchBracketCard({
                         nameA={sm.player_a_name ?? (teamA?.name ?? 'Team A')}
                         nameB={sm.player_b_name ?? (teamB?.name ?? 'Team B')}
                         tournamentId={tournamentId}
-                        matchFormat={(teamMatch as any).match_format ?? 'bo5'}
+                        matchFormat={(teamMatch as any).match_format ?? (sport === 'badminton' ? 'bo3' : 'bo5')}
+                        sport={sport === 'badminton' ? 'badminton' : 'table_tennis'}
                         onSaved={() => setExpandedSub(null)}
                       />
                     </div>

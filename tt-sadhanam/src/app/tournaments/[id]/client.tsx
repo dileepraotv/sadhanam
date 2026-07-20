@@ -485,7 +485,7 @@ function RealtimeFooter({ status }: { status: RealtimeStatus }) {
   return (
     <div className={cn(
       'flex items-center justify-center gap-1.5',
-      'text-[10px] font-medium uppercase tracking-widest',
+      'text-[11px] font-medium uppercase tracking-widest',
       connected ? 'text-orange-600/40 dark:text-orange-400/40' : 'text-muted-foreground/40',
     )}>
       {connected ? (

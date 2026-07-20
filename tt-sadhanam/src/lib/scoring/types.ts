@@ -5,7 +5,7 @@
  * Kept in a single file so the type contract is easy to audit in one read.
  */
 
-import type { MatchFormat } from '@/lib/types'
+import type { MatchFormat, SportType } from '@/lib/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GAME SCORE INPUT
@@ -126,3 +126,40 @@ export const FORMAT_CONFIGS: Record<MatchFormat, FormatConfig> = {
   bo5: { format: 'bo5', gamesNeeded: 3, maxGames: 5, label: 'Best of 5' },
   bo7: { format: 'bo7', gamesNeeded: 4, maxGames: 7, label: 'Best of 7' },
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPORT RULES REGISTRY
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Every sport-specific game-scoring rule lives here, keyed by SportType.
+// `Record<SportType, SportRuleSet>` makes it a compile error to add a new
+// value to the SportType union without also giving it a rule set — this is
+// the mechanical guardrail against "forgot to handle a sport" bugs when
+// tennis/soccer are added later.
+//
+// Adding a new sport means adding a new entry here; it can never change the
+// behavior of an existing entry, since each function reads only its own
+// sport's rule set (see validateGameScore in engine.ts).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface SportRuleSet {
+  /** Display label for one scoring unit — 'Game' today; future sports may use 'Set'. */
+  unitLabel:        string
+  /** Points needed to win a game outright (no deuce required). TT: 11, Badminton: 21. */
+  unitWinThreshold: number
+  /** Score at which deuce (win-by-2) rules kick in. TT: 10, Badminton: 20. */
+  deuceAt:          number
+  /**
+   * Hard cap on game score — reaching this value wins outright even with only
+   * a 1-point margin (BWF cap rule: 30-29 is a valid final score).
+   * Undefined = no cap (table tennis plays to win-by-2 indefinitely).
+   */
+  maxPoints?:       number
+}
+
+export const SPORT_RULES: Record<SportType, SportRuleSet> = {
+  table_tennis: { unitLabel: 'Game', unitWinThreshold: 11, deuceAt: 10 },
+  badminton:    { unitLabel: 'Game', unitWinThreshold: 21, deuceAt: 20, maxPoints: 30 },
+}
+
+export const DEFAULT_SPORT: SportType = 'table_tennis'

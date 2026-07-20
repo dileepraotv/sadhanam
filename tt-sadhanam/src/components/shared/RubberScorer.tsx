@@ -18,8 +18,9 @@ import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toaster'
 import { createClient } from '@/lib/supabase/client'
 import { saveGameScore, declareMatchWinner, updateMatchFormat } from '@/lib/actions/matches'
-import type { MatchFormat } from '@/lib/types'
+import type { MatchFormat, SportType } from '@/lib/types'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
+import { SPORT_RULES } from '@/lib/scoring/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -49,16 +50,18 @@ type GameLocal = { s1: string; s2: string }
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Validates a TT game score using the canonical scoring engine.
- * Returns a human-readable error string, or null if valid.
+ * Validates a game score using the canonical scoring engine, for whichever
+ * sport this rubber belongs to (table tennis 11pt or badminton 21pt — see
+ * SPORT_RULES in lib/scoring/types.ts). Returns a human-readable error
+ * string, or null if valid.
  *
- * Previously this was a local duplicate (validateTTScore). Now it delegates
- * to validateGameScore from lib/scoring/engine.ts so there is a single source
- * of truth for table tennis scoring rules across inline team scoring and the
- * full-page individual scoring UI.
+ * Previously this was a local duplicate (validateTTScore) hard-coded to
+ * table tennis. Now it delegates to validateGameScore from
+ * lib/scoring/engine.ts so there is a single source of truth for scoring
+ * rules across inline team scoring and the full-page individual scoring UI.
  */
-function validateScore(s1: number, s2: number): string | null {
-  const result = validateGameScore({ score1: s1, score2: s2 })
+function validateScore(s1: number, s2: number, sport: SportType): string | null {
+  const result = validateGameScore({ score1: s1, score2: s2 }, sport)
   if (result.ok) return null
   return formatValidationErrors(result)
 }
@@ -75,14 +78,17 @@ interface RubberScorerProps {
   nameB:       string
   tournamentId: string
   matchFormat:  MatchFormat
+  /** Defaults to table_tennis so existing Corbillon/Swaythling callers need no changes. */
+  sport?:       SportType
   onSaved:      () => void
 }
 
 export function RubberScorer({
-  submatch, nameA, nameB, tournamentId, matchFormat: propFormat, onSaved,
+  submatch, nameA, nameB, tournamentId, matchFormat: propFormat, sport = 'table_tennis', onSaved,
 }: RubberScorerProps) {
   const sbRef    = useRef(createClient())
   const supabase = sbRef.current
+  const sportRules = SPORT_RULES[sport]
 
   const [games,        setGames]       = useState<Array<{id:string;game_number:number;score1:number;score2:number}>>([])
   const [localScores,  setLocal]       = useState<Record<number, GameLocal>>({})
@@ -133,7 +139,7 @@ export function RubberScorer({
       if (row.s1 !== '' && row.s2 !== '') {
         const s1 = parseInt(row.s1, 10), s2 = parseInt(row.s2, 10)
         if (!isNaN(s1) && !isNaN(s2)) {
-          const err = validateScore(s1, s2)
+          const err = validateScore(s1, s2, sport)
           setScoreErrors(prev => ({ ...prev, [gn]: err ?? '' }))
         }
       } else {
@@ -152,7 +158,7 @@ export function RubberScorer({
     for (const { gn, sc } of entries) {
       const s1 = parseInt(sc!.s1, 10), s2 = parseInt(sc!.s2, 10)
       if (isNaN(s1) || isNaN(s2)) continue
-      const err = validateScore(s1, s2)
+      const err = validateScore(s1, s2, sport)
       if (err) { toast({ title: `Game ${gn}: ${err}`, variant: 'destructive' }); return }
     }
     setSaving(true)
@@ -222,7 +228,10 @@ export function RubberScorer({
       {/* Format + status header */}
       <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border/50">
         <div className="flex items-center gap-1.5">
-          {(['bo3','bo5','bo7'] as MatchFormat[]).map(fmt => (
+          <span className="text-[10px] font-semibold text-muted-foreground mr-1">
+            {sport === 'badminton' ? '🏸' : '🏓'} Race to {sportRules.unitWinThreshold}
+          </span>
+          {(sport === 'badminton' ? (['bo3'] as MatchFormat[]) : (['bo3','bo5','bo7'] as MatchFormat[])).map(fmt => (
             <button
               key={fmt}
               onClick={() => showEntry && handleFormatChange(fmt)}

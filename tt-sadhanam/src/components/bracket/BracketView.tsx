@@ -7,14 +7,15 @@ import { cn } from '@/lib/utils'
 import { WinnerTrophy } from '@/components/shared/MatchUI'
 import { InlineLoader } from '@/components/shared/GlobalLoader'
 import { getRoundTab } from '@/lib/utils'
-import type { Match, Game } from '@/lib/types'
+import type { Match, Game, SportType } from '@/lib/types'
 import { MatchCard } from './MatchCard'
 import { Check, Trophy, AlertTriangle } from 'lucide-react'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
+import { SPORT_RULES } from '@/lib/scoring/types'
 import { toast } from '@/components/ui/toaster'
 
 interface BracketViewProps {
-  tournament:    { id: string; name: string }
+  tournament:    { id: string; name: string; sport_type?: SportType }
   matches:       Match[]
   isAdmin?:      boolean
   isPending?:     boolean   // shows loading overlay while bracket is generating
@@ -23,6 +24,7 @@ interface BracketViewProps {
 }
 
 export function BracketView({ tournament, matches, isAdmin, isPending, matchBasePath, onMatchClick }: BracketViewProps) {
+  const sport: SportType = tournament.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
   const latestRound = useMemo(() => {
     const live = matches.find(m => m.status === 'live')?.round
     if (live) return live
@@ -77,7 +79,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
                 : undefined}
               className={cn(
                 // whitespace-nowrap so "Semi Finals" never wraps mid-word
-                'shrink-0 px-4 pt-2 pb-2 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap',
+                'shrink-0 px-4 pt-2.5 pb-2.5 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap',
                 !isActive && tab.isLatest && !activeRound
                   ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-2 border-b-0 border-orange-300 dark:border-orange-600/50'
                   : !isActive
@@ -116,7 +118,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
             ? { background: '#F06321', color: '#fff', border: '2px solid #F06321', borderBottom: 'none' }
             : undefined}
           className={cn(
-            'shrink-0 px-4 pt-2 pb-2 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap',
+            'shrink-0 px-4 pt-2.5 pb-2.5 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap',
             displayRound !== -1 && 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
           )}
         >
@@ -131,6 +133,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
         <RoundList
           round={rounds.find(r => r.round === displayRound)!}
           isAdmin={isAdmin}
+          sport={sport}
           matchBasePath={matchBasePath}
           onMatchClick={onMatchClick}
           expandedMatchId={expandedMatchId}
@@ -403,9 +406,10 @@ function DrawPlayerRow({ player, games, isWinner, isLoser, showScore, matchIsBye
 }
 
 // ── Single-round list (tab view) ──────────────────────────────────────────────
-function RoundList({ round, isAdmin, matchBasePath, onMatchClick, expandedMatchId, onToggleExpand }: {
+function RoundList({ round, isAdmin, sport, matchBasePath, onMatchClick, expandedMatchId, onToggleExpand }: {
   round:           RoundGroup
   isAdmin?:        boolean
+  sport?:          SportType
   matchBasePath?:  string
   onMatchClick?:   (match: Match) => void
   expandedMatchId?: string | null
@@ -457,6 +461,7 @@ function RoundList({ round, isAdmin, matchBasePath, onMatchClick, expandedMatchI
                 matchId={m.id}
                 player1Name={m.player1?.name ?? 'Player 1'}
                 player2Name={m.player2?.name ?? 'Player 2'}
+                sport={sport ?? 'table_tennis'}
                 onSaved={() => onToggleExpand?.(m.id)}
               />
             </div>
@@ -497,12 +502,14 @@ function RoundList({ round, isAdmin, matchBasePath, onMatchClick, expandedMatchI
 // Inline scorer for KO bracket matches.
 // Uses render-time validation (no scoreErrors state) and bulkSaveGameScores.
 
-export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, onSaved }: {
+export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, sport = 'table_tennis', onSaved }: {
   matchId:     string
   player1Name: string
   player2Name: string
+  sport?:      SportType
   onSaved?:    () => void
 }) {
+  const sportRules = SPORT_RULES[sport]
   const router = useRouter()
   const [games,   setGames]   = useState<{id:string;game_number:number;score1:number;score2:number;winner_id:string|null}[]>([])
   const [local,   setLocal]   = useState<Record<number,{s1:string;s2:string}>>({})
@@ -569,7 +576,7 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, onS
     for (const {gn, sc} of entries) {
       const s1 = parseInt(sc!.s1, 10), s2 = parseInt(sc!.s2, 10)
       if (isNaN(s1) || isNaN(s2)) { setSaveError(`Game ${gn}: enter valid numbers`); return }
-      const vr = validateGameScore({ score1: s1, score2: s2 })
+      const vr = validateGameScore({ score1: s1, score2: s2 }, sport)
       if (!vr.ok) { setSaveError(`Game ${gn}: ${formatValidationErrors(vr)}`); return }
     }
     setSaving(true)
@@ -608,7 +615,7 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, onS
     if (s1str !== '' && s2str !== '') {
       const s1 = parseInt(s1str, 10), s2 = parseInt(s2str, 10)
       if (!isNaN(s1) && !isNaN(s2)) {
-        const vr = validateGameScore({ score1: s1, score2: s2 })
+        const vr = validateGameScore({ score1: s1, score2: s2 }, sport)
         gameValidation[gn] = { valid: vr.ok, errorMsg: vr.ok ? '' : vr.errors[0]?.message ?? 'Invalid score' }
       } else { gameValidation[gn] = { valid: true, errorMsg: '' } }
     } else { gameValidation[gn] = { valid: true, errorMsg: '' } }
@@ -616,9 +623,16 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, onS
 
   return (
     <div className="flex flex-col gap-2">
+      {/* Sport + format context */}
+      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+        <span>{sport === 'badminton' ? '🏸 Badminton' : '🏓 Table Tennis'}</span>
+        <span className="opacity-40">·</span>
+        <span>Race to {sportRules.unitWinThreshold}</span>
+      </div>
+
       {/* Format selector */}
       <div className="flex items-center gap-1 pt-1">
-        {(['bo3','bo5','bo7'] as const).map(f => (
+        {(sport === 'badminton' ? (['bo3'] as const) : (['bo3','bo5','bo7'] as const)).map(f => (
           <button key={f} onClick={() => handleFormatChange(f)}
             className={cn(
               'px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-colors',

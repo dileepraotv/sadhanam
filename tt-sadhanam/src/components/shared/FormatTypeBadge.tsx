@@ -90,6 +90,21 @@ const FORMAT_MAP: Record<string, BadgeConfig> = {
     color: 'text-teal-700 dark:text-teal-300 bg-teal-100 dark:bg-teal-900/30 border-teal-200 dark:border-teal-800/60',
     Icon:  Layers,
   },
+  team_thomas: {
+    label: 'Teams · Thomas Cup',
+    color: 'text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800/60',
+    Icon:  Swords,
+  },
+  team_uber: {
+    label: 'Teams · Uber Cup',
+    color: 'text-fuchsia-700 dark:text-fuchsia-300 bg-fuchsia-100 dark:bg-fuchsia-900/30 border-fuchsia-200 dark:border-fuchsia-800/60',
+    Icon:  Swords,
+  },
+  team_sudirman: {
+    label: 'Teams · Sudirman Cup',
+    color: 'text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800/60',
+    Icon:  Swords,
+  },
 }
 
 const FALLBACK: BadgeConfig = {

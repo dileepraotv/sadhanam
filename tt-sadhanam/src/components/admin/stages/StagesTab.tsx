@@ -211,6 +211,21 @@ export function StagesTab({
     )
   }
 
+  // ── 8b. Badminton team cups — Thomas / Uber / Sudirman ────────────────────
+  // Structurally identical to the Corbillon/Swaythling KO path above (seeded
+  // KO bracket, 5-rubber ties) — TeamLeagueStage dispatches to the correct
+  // generator internally based on tournament.format_type.
+  if (ft === 'team_thomas' || ft === 'team_uber' || ft === 'team_sudirman') {
+    return (
+      <TeamLeagueStage
+        tournament={tournament}
+        matchBase={matchBase}
+        view="teams"
+        showSeedInput={true}
+      />
+    )
+  }
+
   // ── 9. Teams - Groups + Knockout (Corbillon Cup) ───────────────────────────
   if (ft === 'team_group_corbillon') {
     return (

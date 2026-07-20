@@ -27,8 +27,8 @@ import type {
   GameOutcome,
   MatchOutcome,
 } from './types'
-import { FORMAT_CONFIGS } from './types'
-import type { MatchFormat, Game } from '@/lib/types'
+import { FORMAT_CONFIGS, SPORT_RULES, DEFAULT_SPORT } from './types'
+import type { MatchFormat, Game, SportType } from '@/lib/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. validateGameScore
@@ -54,9 +54,12 @@ import type { MatchFormat, Game } from '@/lib/types'
  * validateGameScore({ score1: 10, score2: 10 }) // { ok: false } ← game not finished
  * validateGameScore({ score1: 9,  score2: 7  }) // { ok: false } ← below 11
  */
-export function validateGameScore(input: GameScoreInput): ValidationResult {
+export function validateGameScore(input: GameScoreInput, sport: SportType = DEFAULT_SPORT): ValidationResult {
   const errors: ValidationError[] = []
   const { score1, score2 } = input
+  const rules = SPORT_RULES[sport] ?? SPORT_RULES[DEFAULT_SPORT]
+  const { unitWinThreshold: winThreshold, deuceAt, maxPoints: cap } = rules
+  const unit = rules.unitLabel.toLowerCase()
 
   // ── 1. Type checks ──────────────────────────────────────────────────────────
   if (!Number.isInteger(score1) || !Number.isInteger(score2)) {
@@ -84,20 +87,44 @@ export function validateGameScore(input: GameScoreInput): ValidationResult {
     }
   }
 
-  // ── 3. Tie check ─────────────────────────────────────────────────────────────
+  // ── 3. Hard cap (badminton only — table tennis has no `cap`, so this never
+  // triggers for sport='table_tennis' and behavior there is unchanged) ────────
+  if (cap !== undefined && (score1 > cap || score2 > cap)) {
+    return {
+      ok: false,
+      errors: [{
+        code:    'WINNER_EXCEEDS_NORMAL',
+        message: `A score cannot exceed ${cap} points — the ${unit} ends automatically at ${cap}.`,
+        field:   score1 > cap ? 'score1' : 'score2',
+      }],
+    }
+  }
+
+  // ── 4. Tie check ─────────────────────────────────────────────────────────────
   if (score1 === score2) {
-    if (score1 < 10) {
-      // Tied below 10 is impossible in TT — one player must win a point to advance
+    if (score1 < deuceAt) {
+      // Tied below deuceAt is impossible — one player must win a point to advance
       return {
         ok: false,
         errors: [{
           code:    'SCORE_TIE_NOT_DEUCE',
-          message: `A ${score1}–${score2} tie is impossible. Games can only tie at 10–10 or higher (deuce).`,
+          message: `A ${score1}–${score2} tie is impossible. Games can only tie at ${deuceAt}–${deuceAt} or higher (deuce).`,
           field:   'both',
         }],
       }
     }
-    // score1 === score2 ≥ 10 → deuce, game still in progress
+    if (cap !== undefined && score1 >= cap) {
+      // Tied at/above the cap is impossible — one side would already have won
+      return {
+        ok: false,
+        errors: [{
+          code:    'SCORE_TIE_NOT_DEUCE',
+          message: `A ${score1}–${score2} tie is impossible — the ${unit} ends automatically at ${cap} points.`,
+          field:   'both',
+        }],
+      }
+    }
+    // score1 === score2 ≥ deuceAt (and below any cap) → deuce, game still in progress
     return {
       ok: false,
       errors: [{
@@ -108,25 +135,29 @@ export function validateGameScore(input: GameScoreInput): ValidationResult {
     }
   }
 
-  // ── 4. Identify winner and loser ─────────────────────────────────────────────
+  // ── 5. Identify winner and loser ─────────────────────────────────────────────
   const [winnerScore, loserScore] =
     score1 > score2 ? [score1, score2] : [score2, score1]
   const margin = winnerScore - loserScore
+  const winnerField: 'score1' | 'score2' = score1 > score2 ? 'score1' : 'score2'
+  // BWF cap-arrival score (e.g. 30–29) is the ONE legitimate margin-of-1 finish —
+  // never true for table tennis since `cap` is undefined there.
+  const capWin = cap !== undefined && winnerScore === cap && loserScore === cap - 1
 
-  // ── 5. Minimum winning score ─────────────────────────────────────────────────
-  if (winnerScore < 11) {
+  // ── 6. Minimum winning score ─────────────────────────────────────────────────
+  if (winnerScore < winThreshold) {
     errors.push({
       code:    'WINNER_BELOW_MINIMUM',
-      message: `The winning score must be at least 11. Got ${winnerScore}.`,
-      field:   score1 > score2 ? 'score1' : 'score2',
+      message: `The winning score must be at least ${winThreshold}. Got ${winnerScore}.`,
+      field:   winnerField,
     })
   }
 
-  // ── 6. Win-by-2 rule ─────────────────────────────────────────────────────────
+  // ── 7. Win-by-2 rule ─────────────────────────────────────────────────────────
   // In normal play (no deuce) the margin is exactly winnerScore - loserScore.
-  // In deuce (both ≥ 10) the margin must be exactly 2.
-  // In ALL cases, the margin must be ≥ 2.
-  if (margin < 2) {
+  // In deuce (both ≥ deuceAt) the margin must be exactly 2.
+  // In ALL cases, the margin must be ≥ 2 — EXCEPT the exact cap-arrival score.
+  if (!capWin && margin < 2) {
     errors.push({
       code:    'LEAD_TOO_SMALL',
       message: `A game must be won by 2 clear points. The current margin is only ${margin}.`,
@@ -134,22 +165,23 @@ export function validateGameScore(input: GameScoreInput): ValidationResult {
     })
   }
 
-  // ── 7. Non-deuce: winner must be exactly 11 ──────────────────────────────────
-  // If the loser has fewer than 10 points, deuce never happened.
-  // The game ends the moment someone reaches 11, so the winner cannot exceed 11.
-  // e.g. 18–5 is impossible — the game would have ended at 11–5.
-  if (loserScore < 10 && winnerScore > 11) {
+  // ── 8. Non-deuce: winner must be exactly winThreshold ────────────────────────
+  // If the loser has fewer than deuceAt points, deuce never happened.
+  // The game ends the moment someone reaches winThreshold, so the winner cannot
+  // exceed it. e.g. 18–5 is impossible in TT — the game would have ended at 11–5.
+  if (loserScore < deuceAt && winnerScore > winThreshold) {
     errors.push({
       code:    'WINNER_EXCEEDS_NORMAL',
-      message: `If the opponent has ${loserScore} points, the game ends at 11–${loserScore}. A score of ${winnerScore}–${loserScore} is impossible — did you mean 11–${loserScore}?`,
-      field:   score1 > score2 ? 'score1' : 'score2',
+      message: `If the opponent has ${loserScore} points, the game ends at ${winThreshold}–${loserScore}. A score of ${winnerScore}–${loserScore} is impossible — did you mean ${winThreshold}–${loserScore}?`,
+      field:   winnerField,
     })
   }
 
-  // ── 8. Deuce territory: margin must be exactly 2 ─────────────────────────────
-  // In deuce (both ≥ 10), margin must be EXACTLY 2 — not 3, 4, etc.
+  // ── 9. Deuce territory: margin must be exactly 2 ─────────────────────────────
+  // In deuce (both ≥ deuceAt), margin must be EXACTLY 2 — not 3, 4, etc.
   // (A margin of 3+ means someone failed to call game at the right point.)
-  if (loserScore >= 10 && margin > 2) {
+  // capWin always has margin=1, so it never reaches this branch (margin > 2).
+  if (loserScore >= deuceAt && margin > 2) {
     errors.push({
       code:    'DEUCE_NOT_WIN_BY_TWO',
       message: `In deuce the margin must be exactly 2. Got ${winnerScore}–${loserScore} (margin ${margin}). Did you mean ${loserScore + 2}–${loserScore}?`,

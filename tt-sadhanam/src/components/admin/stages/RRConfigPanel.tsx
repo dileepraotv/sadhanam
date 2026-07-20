@@ -17,7 +17,7 @@ import { useLoading } from '@/components/shared/GlobalLoader'
 import { useState } from 'react'
 import { Settings2, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Player, RRStageConfig, MatchFormat } from '@/lib/types'
+import type { Player, RRStageConfig, MatchFormat, SportType } from '@/lib/types'
 import {
   Card, CardContent, CardHeader, CardTitle,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/index'
 import { Button } from '@/components/ui/button'
 import { computeGroupLayout, groupLayoutSummary, validateGroupLayout } from '@/lib/roundrobin/groupLayout'
+import { seedingMethodCaption, seedingMethodLabel } from '@/lib/roundrobin/seedingCopy'
 
 interface Props {
   players:      Player[]
@@ -32,6 +33,8 @@ interface Props {
   isPending:    boolean
   /** If provided, render in summary mode instead of form */
   existing?:    RRStageConfig
+  /** Drives the seeding-method help text (defaults to table_tennis) */
+  sport?:       SportType
 }
 
 export interface RRConfigValues {
@@ -43,7 +46,7 @@ export interface RRConfigValues {
   finalizationRule: 'require_all' | 'manual'
 }
 
-export function RRConfigPanel({ players, onSubmit, isPending, existing }: Props) {
+export function RRConfigPanel({ players, onSubmit, isPending, existing, sport }: Props) {
   const [perGroup,     setPerGroup]     = useState(String(existing ? Math.round(players.length / (existing.numberOfGroups || 1)) : 4))
   const [advanceCount, setAdvanceCount] = useState(String(existing?.advanceCount   ?? 2))
   const [matchFormat,  setMatchFormat]  = useState<MatchFormat>(existing?.matchFormat ?? 'bo5')
@@ -119,7 +122,7 @@ export function RRConfigPanel({ players, onSubmit, isPending, existing }: Props)
           <div className="rounded-xl bg-muted/30 border border-border px-4 py-3 text-sm text-muted-foreground leading-relaxed">
             <p className="font-medium text-foreground mb-1.5">How group stages work</p>
             <ul className="flex flex-col gap-1 text-xs">
-              <li>• Players are <strong className="text-foreground">snake-seeded</strong> into groups — seeded players are spread evenly.</li>
+              <li>• Seeding method: <strong className="text-foreground">{seedingMethodLabel(sport)}</strong> — {seedingMethodCaption(sport)}</li>
               <li>• Each player plays every other player in their group exactly once.</li>
               <li>• <strong className="text-foreground">Top N qualify</strong> per group advance to the knockout stage.</li>
               <li>• <strong className="text-foreground">Best-third</strong> (optional): picks the best 3rd-placed finishers across all groups — useful when the total qualifiers must be a power of 2.</li>

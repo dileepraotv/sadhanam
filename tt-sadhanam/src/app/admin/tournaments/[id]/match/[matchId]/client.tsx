@@ -27,8 +27,9 @@ import {
   computeMatchState,
   inferGameNumbersToShow,
 } from '@/lib/scoring/engine'
-import { FORMAT_CONFIGS } from '@/lib/scoring/types'
+import { FORMAT_CONFIGS, SPORT_RULES } from '@/lib/scoring/types'
 import type { ComputedMatchState } from '@/lib/scoring/types'
+import type { SportType } from '@/lib/types'
 import { useLoading } from '@/components/shared/GlobalLoader'
 
 interface LocalScore { s1: string; s2: string }
@@ -136,6 +137,8 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
   }
 
   const cfg        = FORMAT_CONFIGS[activeFormat as keyof typeof FORMAT_CONFIGS] ?? FORMAT_CONFIGS.bo5
+  const sport: SportType = tournament.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
+  const sportRules = SPORT_RULES[sport]
   const isTeamSub  = (match as unknown as { match_kind?: string }).match_kind === 'team_submatch'
   const _ep1       = match.player1_id ?? (isTeamSub ? 'TEAM_A' : null)
   const _ep2       = match.player2_id ?? (isTeamSub ? 'TEAM_B' : null)
@@ -169,7 +172,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
         toast({ title: 'Invalid number', description: `Game ${gameNum}: enter valid scores.`, variant: 'destructive' })
         return
       }
-      const vr = validateGameScore({ score1: s1, score2: s2 })
+      const vr = validateGameScore({ score1: s1, score2: s2 }, sport)
       if (!vr.ok) {
         const msg = vr.errors[0]?.message ?? 'invalid score'
         toast({ title: `Game ${gameNum} invalid`, description: msg, variant: 'destructive' })
@@ -287,6 +290,15 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
             )}
           </div>
         </div>
+        {/* Sport + target context — always visible so an operator scoring
+            multiple sports never mis-keys a threshold (11 vs 21 points) */}
+        <div className="px-4 pb-2 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
+          <span>{sport === 'badminton' ? '🏸 Badminton' : '🏓 Table Tennis'}</span>
+          <span className="text-white/40">·</span>
+          <span>{FORMAT_CONFIGS[activeFormat].label}</span>
+          <span className="text-white/40">·</span>
+          <span>Race to {sportRules.unitWinThreshold}</span>
+        </div>
       </header>
 
       <main className="flex-1 mx-auto w-full max-w-3xl px-4 py-6">
@@ -300,7 +312,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
             <div className="flex items-center gap-3 px-1 flex-wrap">
               <span className="text-xs font-semibold text-muted-foreground shrink-0">Format:</span>
               <div className="flex gap-1.5 flex-wrap">
-                {(['bo3', 'bo5', 'bo7'] as MatchFormat[]).map(fmt => (
+                {(sport === 'badminton' ? (['bo3'] as MatchFormat[]) : (['bo3', 'bo5', 'bo7'] as MatchFormat[])).map(fmt => (
                   <button
                     key={fmt}
                     onClick={() => activeFormat !== fmt && handleFormatChange(fmt)}
@@ -317,7 +329,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
                 ))}
               </div>
               <span className="text-xs text-muted-foreground/60 hidden sm:block">
-                First to {cfg.gamesNeeded} games wins · up to {cfg.maxGames} games
+                First to {cfg.gamesNeeded} games wins (race to {sportRules.unitWinThreshold} pts) · up to {cfg.maxGames} games
               </span>
             </div>
           )}
@@ -360,6 +372,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
                     match={match}
                     matchState={matchState}
                     activeFormat={activeFormat}
+                    sport={sport}
                     isMatchComplete={isComplete}
                     isTeamSubmatch={isTeamSub}
                     isPending={isPending}
@@ -588,7 +601,7 @@ function PlayerCol({ player, games, isWinner, side }: {
 // ── GameRow ───────────────────────────────────────────────────────────────────
 
 function GameRow({
-  gameNum, savedGame, localScore, match, matchState, activeFormat,
+  gameNum, savedGame, localScore, match, matchState, activeFormat, sport,
   isMatchComplete, isTeamSubmatch, isPending,
   onScoreChange, onDelete, onReset,
 }: {
@@ -597,6 +610,7 @@ function GameRow({
   localScore:      LocalScore
   match:           Match
   matchState:      ComputedMatchState
+  sport:           SportType
   activeFormat:    MatchFormat
   isMatchComplete: boolean
   isTeamSubmatch:  boolean
@@ -619,7 +633,7 @@ function GameRow({
   let scoreValid = true
   let scoreErrorMsg = ''
   if (bothFilled && hasNumbers) {
-    const vr = validateGameScore({ score1: s1, score2: s2 })
+    const vr = validateGameScore({ score1: s1, score2: s2 }, sport)
     scoreValid = vr.ok
     if (!vr.ok) scoreErrorMsg = vr.errors[0]?.message ?? 'Invalid score'
   }

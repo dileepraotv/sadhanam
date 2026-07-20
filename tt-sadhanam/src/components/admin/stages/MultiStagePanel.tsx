@@ -42,6 +42,7 @@ import {
 import { BracketView } from '@/components/bracket/BracketView'
 import { toast } from '@/components/ui/toaster'
 import { RRConfigPanel, type RRConfigValues } from './RRConfigPanel'
+import { seedingMethodCaption, seedingMethodLabel } from '@/lib/roundrobin/seedingCopy'
 import { NextStepBanner } from './NextStepBanner'
 import { GroupStandingsTable } from './GroupStandingsTable'
 import { ResetStageDialog } from './ResetStageDialog'
@@ -260,7 +261,7 @@ export function MultiStagePanel({
           variant="action"
           step="Step 2 of 4"
           title="Stage 1 configured — assign players to groups"
-          description='Click "Assign Players to Groups" in Stage 1 below.'
+          description={`Click "Assign Players to Groups" in Stage 1 below to use the ${seedingMethodLabel(tournament.sport_type)} method.`}
         />
       )}
       {rrPhase === 'no_fixtures' && (
@@ -315,13 +316,13 @@ export function MultiStagePanel({
 
           {/* no_stage: config form */}
           {rrPhase === 'no_stage' && (
-            <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} />
+            <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} sport={tournament.sport_type} />
           )}
 
           {/* no_members: show summary + assign */}
           {rrPhase === 'no_members' && cfg && (
             <div className="flex flex-col gap-4">
-              <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} />
+              <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} sport={tournament.sport_type} />
               <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-border/60">
                 <Button onClick={handleAssign} disabled={isPending}>
                   <Users className="h-4 w-4" />
@@ -335,15 +336,17 @@ export function MultiStagePanel({
                 >
                   ← Reconfigure
                 </Button>
-                <p className="text-xs text-muted-foreground sm:ml-auto">Snake-seeds players across groups based on ranking.</p>
               </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {seedingMethodCaption(tournament.sport_type)}
+              </p>
             </div>
           )}
 
           {/* no_fixtures: summary + generate */}
           {rrPhase === 'no_fixtures' && cfg && (
             <div className="flex flex-col gap-4">
-              <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} />
+              <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} sport={tournament.sport_type} />
               <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-border/60">
                 <Button onClick={handleGenerateFixtures} disabled={isPending}>
                   <Shuffle className="h-4 w-4" />
@@ -360,7 +363,7 @@ export function MultiStagePanel({
           {/* in_progress / all_complete / closed: show standings */}
           {(rrPhase === 'in_progress' || rrPhase === 'all_complete') && cfg && (
             <div className="flex flex-col gap-4">
-              <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} />
+              <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} sport={tournament.sport_type} />
 
               <MatchProgress rrMatches={rrMatches} />
 
@@ -434,6 +437,7 @@ export function MultiStagePanel({
               allowBestThird={cfg.allowBestThird}
               bestThirdCount={cfg.bestThirdCount}
               initialGroup={initialGroup}
+              sport={tournament.sport_type}
             />
           </div>
         )}

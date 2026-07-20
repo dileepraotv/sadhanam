@@ -104,6 +104,10 @@ export async function createEvent(cid: string, formData: FormData) {
   const format      = (formData.get('format') as string) || 'bo5'
   const date        = (formData.get('date') as string) || null
   const format_type = (formData.get('format_type') as string) || 'single_knockout'
+  // sport_type defaults to 'table_tennis' — matches the DB column default, so
+  // any caller that omits this field (e.g. an older cached client bundle)
+  // behaves exactly as it always has.
+  const sport_type  = (formData.get('sport_type') as string) || 'table_tennis'
 
   if (!name) throw new Error('Event name is required')
 
@@ -117,6 +121,7 @@ export async function createEvent(cid: string, formData: FormData) {
       format,
       date,
       format_type,
+      sport_type,
       championship_id: cid,
       location: champ?.location ?? null,
       created_by: user.id,

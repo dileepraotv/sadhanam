@@ -23,6 +23,7 @@ import { createClient }   from '@/lib/supabase/server'
 import type { MatchFormat } from '@/lib/types'
 import { revalidateTournamentPaths } from '@/lib/actions/stages'
 import { nextPowerOf2 }   from '@/lib/utils'
+import { THOMAS_SUBMATCHES, UBER_SUBMATCHES, SUDIRMAN_SUBMATCHES, type SubmatchDef } from '@/lib/badminton/teamFormats'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // createTeam
@@ -1283,4 +1284,229 @@ export async function generateTeamSwaythlingBracket(
 
   await revalidateTournamentPaths(supabase, tournamentId)
   return {}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BWF badminton team cup brackets — Thomas / Uber / Sudirman
+//
+// Structurally identical to generateTeamSwaythlingBracket above (seeded KO
+// bracket, 5-rubber ties, first to 3 rubbers wins) — the ONLY difference is
+// which rubbers make up a tie. Extracted into one shared generator so the
+// three cup formats never drift out of sync with each other, while the
+// existing Corbillon/Swaythling generators above are left completely
+// untouched (zero risk to existing table tennis team formats).
+// ─────────────────────────────────────────────────────────────────────────────
+async function generateBWFTeamKOBracket(
+  tournamentId:  string,
+  submatchDefs:  SubmatchDef[],
+  matchFormat:   MatchFormat = 'bo3',   // BWF badminton standard: best of 3 games
+): Promise<{ error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: t } = await supabase
+    .from('tournaments')
+    .select('id, created_by')
+    .eq('id', tournamentId)
+    .eq('created_by', user.id)
+    .single()
+  if (!t) return { error: 'Tournament not found' }
+
+  const { data: teams } = await supabase
+    .from('teams')
+    .select('id, name, short_name, color, seed, team_players(id, name, position)')
+    .eq('tournament_id', tournamentId)
+  if (!teams || teams.length < 2) return { error: 'Need at least 2 teams to generate bracket' }
+
+  const seeded   = teams.filter(t => t.seed != null && t.seed >= 1).sort((a, b) => a.seed - b.seed)
+  const unseeded = teams.filter(t => !t.seed || t.seed < 1).sort((a, b) => a.name.localeCompare(b.name))
+  const ordered  = [...seeded, ...unseeded]
+
+  const N           = ordered.length
+  const bracketSize = nextPowerOf2(N)
+
+  // Clear existing (including orphaned matches from failed prior runs)
+  const { data: existingTMs } = await supabase
+    .from('team_matches').select('id').eq('tournament_id', tournamentId)
+  const existingIds = (existingTMs ?? []).map(m => m.id)
+  if (existingIds.length > 0) {
+    await supabase.from('team_match_submatches').delete().in('team_match_id', existingIds)
+    await supabase.from('team_matches').delete().eq('tournament_id', tournamentId)
+  }
+  {
+    const { data: orphanedMatches } = await supabase
+      .from('matches')
+      .select('id')
+      .eq('tournament_id', tournamentId)
+      .eq('match_kind', 'team_submatch')
+    const orphanIds = (orphanedMatches ?? []).map(m => m.id)
+    if (orphanIds.length > 0) {
+      await supabase.from('games').delete().in('match_id', orphanIds)
+      await supabase.from('matches').delete().in('id', orphanIds)
+    }
+  }
+
+  function buildSeedOrder(size: number): number[] {
+    let order: number[] = [1]
+    let cur = 1
+    while (cur < size) {
+      cur *= 2
+      const next: number[] = []
+      for (const x of order) { next.push(x); next.push(cur + 1 - x) }
+      order = next
+    }
+    return order
+  }
+
+  const seedOrder = buildSeedOrder(bracketSize)
+  const numRounds = Math.log2(bracketSize)
+  function roundName(round: number): string {
+    const remaining = numRounds - round + 1
+    if (remaining === 1) return 'Final'
+    if (remaining === 2) return 'Semi-Final'
+    if (remaining === 3) return 'Quarter-Final'
+    return `Round of ${bracketSize / Math.pow(2, round - 1)}`
+  }
+
+  const slotTeam = (slot: number): typeof ordered[0] | null => {
+    const rank = seedOrder[slot]
+    return rank <= N ? ordered[rank - 1] : null
+  }
+
+  const crypto = require('crypto')
+  const teamMatchRows: Record<string, unknown>[] = []
+  const submatchRows: Record<string, unknown>[] = []
+  const scoringMatchRows: Record<string, unknown>[] = []
+
+  const slots = Array.from({ length: bracketSize }, (_, i) => slotTeam(i))
+
+  const buildSubmatches = (tmId: string, roundN: number, rName: string, tmIndex: number) => {
+    for (const sm of submatchDefs) {
+      const smId    = crypto.randomUUID() as string
+      const matchId = crypto.randomUUID() as string
+      submatchRows.push({
+        id: smId, team_match_id: tmId,
+        match_order: sm.order, label: sm.label,
+        player_a_name: null, player_b_name: null,
+        team_a_player_id: null, team_b_player_id: null,
+        match_id: matchId,
+      })
+      scoringMatchRows.push({
+        id: matchId, tournament_id: tournamentId,
+        round: roundN,
+        match_number: (roundN - 899) * 100 + tmIndex * 10 + sm.order,
+        round_name: `${rName} — ${sm.label}`,
+        player1_id: null, player2_id: null,
+        player1_games: 0, player2_games: 0,
+        winner_id: null, status: 'pending',
+        next_match_id: null, next_slot: null,
+        match_kind: 'team_submatch',
+        match_format: matchFormat,
+      })
+    }
+  }
+
+  type RoundMatch = {
+    tmId:      string
+    slotA:     typeof ordered[0] | null
+    slotB:     typeof ordered[0] | null
+    roundN:    number
+    rName:     string
+    isBye:     boolean
+    byeWinner: typeof ordered[0] | null
+  }
+
+  const allRounds: RoundMatch[][] = []
+  let curRoundSlots: (typeof ordered[0] | null)[] = slots
+
+  for (let r = 1; r <= numRounds; r++) {
+    const roundMatches: RoundMatch[] = []
+    const nextSlots: (typeof ordered[0] | null)[] = []
+
+    for (let i = 0; i < curRoundSlots.length; i += 2) {
+      const tA = curRoundSlots[i]
+      const tB = curRoundSlots[i + 1]
+      const isBye = r === 1 && (tA === null) !== (tB === null)
+      const byeWinner = isBye ? (tA ?? tB) : null
+
+      roundMatches.push({
+        tmId: crypto.randomUUID() as string,
+        slotA: tA,
+        slotB: tB,
+        roundN: 900 + r - 1,
+        rName: roundName(r),
+        isBye,
+        byeWinner,
+      })
+      nextSlots.push(byeWinner ?? null)
+    }
+
+    allRounds.push(roundMatches)
+    curRoundSlots = nextSlots
+    if (curRoundSlots.length <= 1) break
+  }
+
+  for (const round of allRounds) {
+    let tmIndex = 0
+    for (const m of round) {
+      if (m.isBye) continue
+      teamMatchRows.push({
+        id: m.tmId, tournament_id: tournamentId,
+        slot_index: tmIndex,
+        team_a_id: m.slotA?.id ?? null,
+        team_b_id: m.slotB?.id ?? null,
+        round: m.roundN,
+        round_name: m.rName,
+        status: 'pending',
+        team_a_score: 0, team_b_score: 0,
+      })
+      buildSubmatches(m.tmId, m.roundN, m.rName, tmIndex)
+      tmIndex++
+    }
+  }
+
+  if (scoringMatchRows.length > 0) {
+    const { error: mErr } = await supabase.from('matches').insert(scoringMatchRows)
+    if (mErr) return { error: mErr.message }
+  }
+  if (teamMatchRows.length > 0) {
+    const { error: tmErr } = await supabase.from('team_matches').insert(teamMatchRows)
+    if (tmErr) return { error: tmErr.message }
+  }
+  if (submatchRows.length > 0) {
+    const { error: smErr } = await supabase.from('team_match_submatches').insert(submatchRows)
+    if (smErr) return { error: smErr.message }
+  }
+
+  await supabase.from('tournaments').update({
+    bracket_generated: true, status: 'active', published: true,
+  }).eq('id', tournamentId)
+
+  await revalidateTournamentPaths(supabase, tournamentId)
+  return {}
+}
+
+/** Thomas Cup (Men's Teams): 3 singles + 2 doubles per tie. */
+export async function generateThomasCupBracket(
+  tournamentId: string,
+  matchFormat: MatchFormat = 'bo3',
+): Promise<{ error?: string }> {
+  return generateBWFTeamKOBracket(tournamentId, THOMAS_SUBMATCHES, matchFormat)
+}
+
+/** Uber Cup (Women's Teams): 3 singles + 2 doubles per tie. */
+export async function generateUberCupBracket(
+  tournamentId: string,
+  matchFormat: MatchFormat = 'bo3',
+): Promise<{ error?: string }> {
+  return generateBWFTeamKOBracket(tournamentId, UBER_SUBMATCHES, matchFormat)
+}
+
+/** Sudirman Cup (Mixed Teams): one rubber per discipline (MD, WS, MS, WD, XD). */
+export async function generateSudirmanCupBracket(
+  tournamentId: string,
+  matchFormat: MatchFormat = 'bo3',
+): Promise<{ error?: string }> {
+  return generateBWFTeamKOBracket(tournamentId, SUDIRMAN_SUBMATCHES, matchFormat)
 }

@@ -5,6 +5,14 @@ export type MatchStatus      = 'pending' | 'live' | 'complete' | 'bye'
 export type MatchFormat      = 'bo3' | 'bo5' | 'bo7'
 
 /**
+ * Sport played in a tournament. Lives on `tournaments` only — a championship
+ * is a sport-agnostic container and may hold events of different sports.
+ * Defaults to 'table_tennis' everywhere (DB column default + all app-level
+ * fallbacks) so every pre-existing tournament is unambiguously table tennis.
+ */
+export type SportType = 'table_tennis' | 'badminton'
+
+/**
  * All tournament format types.
  * Single-stage:
  *   single_knockout     — direct elimination bracket
@@ -28,6 +36,12 @@ export type TournamentFormatType =
   | 'team_group_corbillon'
   | 'team_group_swaythling'
   | 'double_elimination'
+  // Badminton team cup formats (reuse the team_matches/team_match_submatches
+  // pipeline exactly like team_league_ko/team_league_swaythling — only the
+  // submatch label set differs, see src/lib/badminton/teamFormats.ts)
+  | 'team_thomas'     // Thomas Cup (Men's Teams): 3 MS + 2 MD, first to 3 rubbers
+  | 'team_uber'       // Uber Cup (Women's Teams): 3 WS + 2 WD, first to 3 rubbers
+  | 'team_sudirman'   // Sudirman Cup (Mixed Teams): MS+WS+MD+WD+XD, first to 3 rubbers
 
 /** Bracket side for double-elimination matches (null on all other formats). */
 export type BracketSide = 'winners' | 'losers' | 'grand_final'
@@ -65,6 +79,8 @@ export interface Tournament {
   created_by:          string
   created_at:          string
   updated_at:          string
+  // v12: sport discriminator (DB default 'table_tennis'; always present after migration)
+  sport_type?:                 SportType
   // v3 multi-stage fields (null/undefined on legacy rows)
   format_type?:                TournamentFormatType
   rr_groups?:                  number

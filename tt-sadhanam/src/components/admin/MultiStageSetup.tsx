@@ -38,6 +38,7 @@ import {
 import { cn }          from '@/lib/utils'
 import type { Tournament, Player, Stage, RRStageConfig } from '@/lib/types'
 import { computeGroupLayout, groupLayoutSummary, validateGroupLayout } from '@/lib/roundrobin/groupLayout'
+import { seedingMethodCaption } from '@/lib/roundrobin/seedingCopy'
 import type { GroupStandings } from '@/lib/roundrobin/types'
 import type { Match }         from '@/lib/types'
 import { Button }             from '@/components/ui/button'
@@ -281,6 +282,9 @@ export function MultiStageSetup({
                 ← Reconfigure
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground leading-relaxed mt-3">
+              {seedingMethodCaption(tournament.sport_type)}
+            </p>
           </CardContent>
         </Card>
       )}
@@ -298,6 +302,7 @@ export function MultiStageSetup({
               allowBestThird={cfg?.allowBestThird}
               bestThirdCount={cfg?.bestThirdCount}
               initialGroup={initialGroup}
+              sport={tournament.sport_type}
             />
           )}
 
@@ -358,6 +363,7 @@ export function MultiStageSetup({
               allowBestThird={cfg?.allowBestThird}
               bestThirdCount={cfg?.bestThirdCount}
               initialGroup={initialGroup}
+              sport={tournament.sport_type}
             />
           )}
         </>

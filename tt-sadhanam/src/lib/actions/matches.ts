@@ -25,7 +25,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import type { MatchFormat, Game } from '@/lib/types'
+import type { MatchFormat, Game, SportType } from '@/lib/types'
 import {
   validateGameScore,
   computeMatchState,
@@ -49,7 +49,7 @@ async function loadMatchWithFormat(supabase: ReturnType<typeof createClient>, ma
       next_match_id, next_slot, started_at,
       match_kind, match_format,
       bracket_side, loser_next_match_id, loser_next_slot,
-      tournament:tournaments ( id, format, status, championship_id )
+      tournament:tournaments ( id, format, status, championship_id, sport_type )
     `)
     .eq('id', matchId)
     .single()
@@ -66,7 +66,7 @@ async function loadMatchWithFormat(supabase: ReturnType<typeof createClient>, ma
         next_match_id, next_slot, started_at,
         match_kind,
         bracket_side, loser_next_match_id, loser_next_slot,
-        tournament:tournaments ( id, format, status, championship_id )
+        tournament:tournaments ( id, format, status, championship_id, sport_type )
       `)
       .eq('id', matchId)
       .single()
@@ -75,6 +75,15 @@ async function loadMatchWithFormat(supabase: ReturnType<typeof createClient>, ma
   }
 
   throw new Error('Match not found')
+}
+
+/** Extract sport_type from a joined tournament row, defaulting to table_tennis
+ *  (matches the DB column default — pre-migration or missing-column reads are
+ *  both safe, since a badminton tournament will always have the column set
+ *  once migration v12 has run). */
+function getSportType(match: { tournament: unknown }): SportType {
+  const t = match.tournament as { sport_type?: SportType } | null
+  return t?.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
 }
 
 /** Revalidate all paths affected by a match score change (Fix: covers championship event pages) */
@@ -141,8 +150,9 @@ export async function saveGameScore(
   const p1 = player1Id ?? (isTeamSubmatch ? 'TEAM_A' : null)
   const p2 = player2Id ?? (isTeamSubmatch ? 'TEAM_B' : null)
 
-  // ── 3. Validate the score (table tennis rules) ──────────────────────────────
-  const scoreValidation = validateGameScore({ score1, score2 })
+  // ── 3. Validate the score (sport-specific rules — TT 11pt / Badminton 21pt) ─
+  const sport = getSportType(match)
+  const scoreValidation = validateGameScore({ score1, score2 }, sport)
   if (!scoreValidation.ok) {
     return { success: false, error: formatValidationErrors(scoreValidation) }
   }
@@ -598,8 +608,9 @@ export async function bulkSaveGameScores(
 
   // ── 2. Validate ALL scores FIRST — before any DB mutations ──────────────
   // This guarantees we never delete old data and then fail to write new data.
+  const sport = getSportType(match)
   for (const { gameNumber, score1, score2 } of entries) {
-    const vr = validateGameScore({ score1, score2 })
+    const vr = validateGameScore({ score1, score2 }, sport)
     if (!vr.ok) {
       return { success: false, error: `Game ${gameNumber}: ${formatValidationErrors(vr)}` }
     }

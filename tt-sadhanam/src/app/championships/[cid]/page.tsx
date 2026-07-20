@@ -131,8 +131,8 @@ export default async function PublicChampionshipPage({ params }: PageProps) {
         </div>
 
         {/* Events grid */}
-        <h2 className="font-display text-xl font-bold text-white mb-4 flex items-center gap-2">
-          <Trophy className="h-5 w-5 text-orange-100" /> Events / Categories
+        <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+          <Trophy className="h-5 w-5 text-orange-500" /> Events / Categories
         </h2>
 
         {allEvents.length > 0 ? (

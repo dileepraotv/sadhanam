@@ -81,8 +81,12 @@ export function AdminChampTabs({
   }
 
   // ── Team League KO (pure knockout) ───────────────────────────────────────────
-  if (ft === 'team_league_ko' || ft === 'team_league_swaythling') {
-    // TeamGroupKOStage manages its own Teams/Knockout tabs internally — no outer tab wrapper needed
+  // Includes the BWF badminton team cups (Thomas/Uber/Sudirman), which share
+  // the exact same seeded-KO-bracket shape and are routed through
+  // TeamLeagueStage — see events/[eid]/page.tsx.
+  if (ft === 'team_league_ko' || ft === 'team_league_swaythling'
+    || ft === 'team_thomas' || ft === 'team_uber' || ft === 'team_sudirman') {
+    // TeamGroupKOStage / TeamLeagueStage manage their own Teams/Knockout tabs internally — no outer tab wrapper needed
     return <>{children}</>
   }
 

@@ -102,7 +102,7 @@ function EventCard({ event: ev }: { event: ActiveEventRow }) {
 
       {/* Championship label */}
       {ev.champName && (
-        <p className="text-[9px] font-bold uppercase tracking-widest text-orange-500/70 dark:text-orange-400/60 truncate pt-0.5">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-orange-500/70 dark:text-orange-400/60 truncate pt-0.5">
           {ev.champName}
         </p>
       )}
@@ -124,7 +124,7 @@ function EventCard({ event: ev }: { event: ActiveEventRow }) {
       {/* Format + stage */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <FormatBadge formatType={ev.formatType} />
-        <span className="text-[10px] text-muted-foreground/70 truncate">{ev.stageLabel}</span>
+        <span className="text-[11px] text-muted-foreground/70 truncate">{ev.stageLabel}</span>
       </div>
 
       {/* Progress bar (only if matches exist) */}
@@ -141,7 +141,7 @@ function EventCard({ event: ev }: { event: ActiveEventRow }) {
               }}
             />
           </div>
-          <p className="text-[9px] text-muted-foreground/50 tabular-nums">
+          <p className="text-[11px] text-muted-foreground/50 tabular-nums">
             {ev.doneMatches}/{ev.totalMatches} matches
           </p>
         </div>

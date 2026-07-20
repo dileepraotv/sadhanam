@@ -283,12 +283,12 @@ function resolveTiedGroup(
     const ptDiffB = b.pointsScored - b.pointsConceded
     if (ptDiffB !== ptDiffA) return ptDiffB - ptDiffA
 
-    // 4. Seed ASC (lower seed number = better)
+    // 4. Seed ASC (lower seed number = better; unseeded players rank below seeded)
     const seedA = a.playerSeed ?? 9999
     const seedB = b.playerSeed ?? 9999
     if (seedA !== seedB) return seedA - seedB
 
-    // 5. Stable fallback by player UUID (draw lot)
+    // 5. Stable fallback by player UUID (deterministic draw-lot)
     return a.playerId < b.playerId ? -1 : a.playerId > b.playerId ? 1 : 0
   })
 }

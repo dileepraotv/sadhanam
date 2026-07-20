@@ -23,11 +23,12 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="flex items-center gap-1.5 h-8 px-2.5 rounded-full border border-white/30 text-white hover:bg-orange-700/40 transition-colors text-xs font-semibold whitespace-nowrap"
+      aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+      className="flex items-center justify-center gap-1.5 h-10 w-10 sm:w-auto sm:px-2.5 rounded-full border border-white/30 text-white hover:bg-orange-700/40 transition-colors text-xs font-semibold whitespace-nowrap shrink-0"
     >
       {theme === 'light'
-        ? <><Moon className="h-3.5 w-3.5 shrink-0" /><span>Dark Mode</span></>
-        : <><Sun  className="h-3.5 w-3.5 shrink-0" /><span>Light Mode</span></>
+        ? <><Moon className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">Dark Mode</span></>
+        : <><Sun  className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">Light Mode</span></>
       }
     </button>
   )

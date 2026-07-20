@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type SportType = 'table_tennis' | 'badminton'
+
 type FormatType =
   | 'single_knockout'
   | 'single_round_robin'
@@ -24,6 +26,9 @@ type FormatType =
   | 'team_league_swaythling'
   | 'team_group_corbillon'
   | 'team_group_swaythling'
+  | 'team_thomas'
+  | 'team_uber'
+  | 'team_sudirman'
 
 // ─── Date suffix ──────────────────────────────────────────────────────────────
 
@@ -44,6 +49,10 @@ type Category = 'singles' | 'teams'
 interface FormatOption {
   value:       FormatType
   category:    Category
+  /** Which sport(s) this format applies to. Singles formats are sport-neutral
+   *  (only the scoring engine's point thresholds differ); team cup formats
+   *  are sport-specific rubber orders and only apply to one sport each. */
+  sports:      SportType[]
   icon:        React.ReactNode
   label:       string
   tagline:     string          // one-line in the picker list
@@ -55,7 +64,7 @@ interface FormatOption {
 
 const FORMAT_OPTIONS: FormatOption[] = [
   {
-    value: 'single_knockout', category: 'singles',
+    value: 'single_knockout', category: 'singles', sports: ['table_tennis', 'badminton'],
     icon: <Swords className="h-4 w-4" />,
     label: 'Knockout',
     tagline: 'Single-elimination bracket',
@@ -64,7 +73,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Knockout',
   },
   {
-    value: 'pure_round_robin', category: 'singles',
+    value: 'pure_round_robin', category: 'singles', sports: ['table_tennis', 'badminton'],
     icon: <RotateCcw className="h-4 w-4" />,
     label: 'Round Robin',
     tagline: 'Everyone plays everyone',
@@ -73,7 +82,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Round Robin',
   },
   {
-    value: 'double_elimination', category: 'singles',
+    value: 'double_elimination', category: 'singles', sports: ['table_tennis', 'badminton'],
     icon: <GitBranch className="h-4 w-4" />,
     label: 'Double Elimination',
     tagline: 'Two losses to be knocked out',
@@ -82,7 +91,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Double Elimination',
   },
   {
-    value: 'single_round_robin', category: 'singles',
+    value: 'single_round_robin', category: 'singles', sports: ['table_tennis', 'badminton'],
     icon: <Users className="h-4 w-4" />,
     label: 'Round Robin + Knockout',
     tagline: 'Round-robin groups then knockout',
@@ -91,7 +100,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Round Robin + Knockout',
   },
   {
-    value: 'multi_rr_to_knockout', category: 'singles',
+    value: 'multi_rr_to_knockout', category: 'singles', sports: ['table_tennis', 'badminton'],
     icon: <Layers className="h-4 w-4" />,
     label: 'Round Robin + Knockout (Flexible)',
     tagline: 'Top N across all groups advance',
@@ -100,7 +109,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Round Robin + Knockout (Flexible)',
   },
   {
-    value: 'team_league_ko', category: 'teams',
+    value: 'team_league_ko', category: 'teams', sports: ['table_tennis'],
     icon: <Shield className="h-4 w-4" />,
     label: 'Knockout (Corbillon Cup)',
     tagline: '4 singles + 1 doubles · 2 players/team',
@@ -109,7 +118,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Teams - Knockout (Corbillon Cup)',
   },
   {
-    value: 'team_league_swaythling', category: 'teams',
+    value: 'team_league_swaythling', category: 'teams', sports: ['table_tennis'],
     icon: <Shield className="h-4 w-4" />,
     label: 'Knockout (Swaythling Cup)',
     tagline: '5 singles, no doubles · 3 players/team',
@@ -118,7 +127,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Teams - Knockout (Swaythling Cup)',
   },
   {
-    value: 'team_group_corbillon', category: 'teams',
+    value: 'team_group_corbillon', category: 'teams', sports: ['table_tennis'],
     icon: <Shield className="h-4 w-4" />,
     label: 'Groups + Knockout (Corbillon Cup)',
     tagline: 'Groups stage then Corbillon KO',
@@ -127,13 +136,40 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Teams - Groups + Knockout (Corbillon Cup)',
   },
   {
-    value: 'team_group_swaythling', category: 'teams',
+    value: 'team_group_swaythling', category: 'teams', sports: ['table_tennis'],
     icon: <Shield className="h-4 w-4" />,
     label: 'Groups + Knockout (Swaythling Cup)',
     tagline: 'Groups stage then Swaythling KO',
     description: 'Teams are seeded into round-robin groups. Top teams from each group advance to a Swaythling Cup knockout bracket (5 singles, no doubles).',
     bullets: ['Group stage + Swaythling KO bracket', '3 players per team', 'Configurable group size & advance count', 'Full group standings + KO draw'],
     defaultName: 'Teams - Groups + Knockout (Swaythling Cup)',
+  },
+  {
+    value: 'team_thomas', category: 'teams', sports: ['badminton'],
+    icon: <Shield className="h-4 w-4" />,
+    label: 'Thomas Cup (Men\'s Teams)',
+    tagline: '3 singles + 2 doubles · knockout tie',
+    description: 'Men\'s team knockout using the Thomas Cup rubber order. Each tie is 5 rubbers — 3 singles and 2 doubles. First team to win 3 rubbers wins the tie.',
+    bullets: ['Order: MS1, MD1, MS2, MD2, MS3', 'BWF-style seeded bracket draw', 'Best of 3 games, race to 21', 'Same scoring UI as other team formats'],
+    defaultName: 'Teams - Thomas Cup',
+  },
+  {
+    value: 'team_uber', category: 'teams', sports: ['badminton'],
+    icon: <Shield className="h-4 w-4" />,
+    label: 'Uber Cup (Women\'s Teams)',
+    tagline: '3 singles + 2 doubles · knockout tie',
+    description: 'Women\'s team knockout using the Uber Cup rubber order. Each tie is 5 rubbers — 3 singles and 2 doubles. First team to win 3 rubbers wins the tie.',
+    bullets: ['Order: WS1, WD1, WS2, WD2, WS3', 'BWF-style seeded bracket draw', 'Best of 3 games, race to 21', 'Same scoring UI as other team formats'],
+    defaultName: 'Teams - Uber Cup',
+  },
+  {
+    value: 'team_sudirman', category: 'teams', sports: ['badminton'],
+    icon: <Shield className="h-4 w-4" />,
+    label: 'Sudirman Cup (Mixed Teams)',
+    tagline: '5 mixed rubbers · knockout tie',
+    description: 'Mixed team knockout using the Sudirman Cup rubber order. Each tie is 5 rubbers covering all five disciplines. First team to win 3 rubbers wins the tie.',
+    bullets: ['Order: MD, WS, MS, WD, XD', 'One tie per round — every discipline played', 'Best of 3 games, race to 21', 'Same scoring UI as other team formats'],
+    defaultName: 'Teams - Sudirman Cup',
   },
 ]
 
@@ -147,6 +183,9 @@ const ACCENT: Record<FormatType, { border: string; bg: string; text: string; rin
   team_league_swaythling: { border: 'border-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/30', text: 'text-orange-600 dark:text-orange-400', ring: 'ring-orange-400', pill: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
   team_group_corbillon:   { border: 'border-rose-400',   bg: 'bg-rose-50 dark:bg-rose-950/30',    text: 'text-rose-600 dark:text-rose-400',   ring: 'ring-rose-400',   pill: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
   team_group_swaythling:  { border: 'border-pink-400',   bg: 'bg-pink-50 dark:bg-pink-950/30',    text: 'text-pink-600 dark:text-pink-400',   ring: 'ring-pink-400',   pill: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300' },
+  team_thomas:            { border: 'border-blue-400',   bg: 'bg-blue-50 dark:bg-blue-950/30',    text: 'text-blue-600 dark:text-blue-400',   ring: 'ring-blue-400',   pill: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+  team_uber:              { border: 'border-fuchsia-400', bg: 'bg-fuchsia-50 dark:bg-fuchsia-950/30', text: 'text-fuchsia-600 dark:text-fuchsia-400', ring: 'ring-fuchsia-400', pill: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300' },
+  team_sudirman:          { border: 'border-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30', text: 'text-emerald-600 dark:text-emerald-400', ring: 'ring-emerald-400', pill: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
 }
 
 // ─── Main form ────────────────────────────────────────────────────────────────
@@ -159,6 +198,7 @@ interface Props {
 export function NewEventForm({ cid, createAction }: Props) {
   const today = new Date().toISOString().split('T')[0]
 
+  const [sport,       setSport]            = useState<SportType>('table_tennis')
   const [formatType,  setFormatTypeState] = useState<FormatType>('single_knockout')
   const [name,        setName]            = useState(() => `${FORMAT_OPTIONS[0].defaultName} ${getDateSuffix()}`)
   const [nameEdited,  setNameEdited]      = useState(false)
@@ -173,6 +213,18 @@ export function NewEventForm({ cid, createAction }: Props) {
     if (!nameEdited) {
       const opt = FORMAT_OPTIONS.find(o => o.value === value)
       if (opt) setName(`${opt.defaultName} ${getDateSuffix()}`)
+    }
+  }
+
+  const handleSelectSport = (value: SportType) => {
+    setSport(value)
+    // If the current format doesn't exist for the new sport, fall back to
+    // the first available format in the active category for that sport.
+    const stillValid = FORMAT_OPTIONS.find(o => o.value === formatType)?.sports.includes(value)
+    if (!stillValid) {
+      const fallback = FORMAT_OPTIONS.find(o => o.category === activeTab && o.sports.includes(value))
+        ?? FORMAT_OPTIONS.find(o => o.sports.includes(value))
+      if (fallback) handleSelectFormat(fallback.value)
     }
   }
 
@@ -196,15 +248,34 @@ export function NewEventForm({ cid, createAction }: Props) {
 
   const selected    = FORMAT_OPTIONS.find(o => o.value === formatType)!
   const accent      = ACCENT[formatType]
-  const singlesOpts = FORMAT_OPTIONS.filter(o => o.category === 'singles')
-  const teamsOpts   = FORMAT_OPTIONS.filter(o => o.category === 'teams')
+  const singlesOpts = FORMAT_OPTIONS.filter(o => o.category === 'singles' && o.sports.includes(sport))
+  const teamsOpts   = FORMAT_OPTIONS.filter(o => o.category === 'teams' && o.sports.includes(sport))
   const listOpts    = activeTab === 'singles' ? singlesOpts : teamsOpts
 
   return (
     <form ref={formRef} onSubmit={handleSubmit}>
       <input type="hidden" name="name"        value={name} />
       <input type="hidden" name="format_type" value={formatType} />
-      <input type="hidden" name="format"      value="bo5" />
+      <input type="hidden" name="sport_type"  value={sport} />
+      <input type="hidden" name="format"      value={sport === 'badminton' ? 'bo3' : 'bo5'} />
+
+      {/* ── Sport selector ─────────────────────────────────────────────── */}
+      <div className="mb-4 flex items-center gap-2">
+        {(['table_tennis', 'badminton'] as SportType[]).map(s => (
+          <button key={s} type="button"
+            onClick={() => handleSelectSport(s)}
+            className={cn(
+              'flex-1 sm:flex-none px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all flex items-center justify-center gap-2',
+              sport === s
+                ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400'
+                : 'border-border bg-card text-muted-foreground hover:border-orange-300 hover:text-foreground',
+            )}
+          >
+            <span className="text-base">{s === 'badminton' ? '🏸' : '🏓'}</span>
+            {s === 'badminton' ? 'Badminton' : 'Table Tennis'}
+          </button>
+        ))}
+      </div>
 
       {/* ── Two-column master–detail layout ─────────────────────────────── */}
       <div className="flex flex-col lg:flex-row gap-0 rounded-2xl border border-border overflow-hidden bg-card shadow-sm">
@@ -218,10 +289,10 @@ export function NewEventForm({ cid, createAction }: Props) {
               <button key={cat} type="button"
                 onClick={() => {
                   setActiveTab(cat)
-                  // Auto-select first in category if current selection is other category
+                  // Auto-select first in category (for the active sport) if current selection is other category
                   const currentCat = FORMAT_OPTIONS.find(o => o.value === formatType)?.category
                   if (currentCat !== cat) {
-                    const first = FORMAT_OPTIONS.find(o => o.category === cat)
+                    const first = FORMAT_OPTIONS.find(o => o.category === cat && o.sports.includes(sport))
                     if (first) handleSelectFormat(first.value)
                   }
                 }}
@@ -300,7 +371,9 @@ export function NewEventForm({ cid, createAction }: Props) {
               {selected.bullets.map((b, i) => (
                 <div key={i} className="flex items-start gap-2">
                   <ArrowRight className={cn('h-3.5 w-3.5 mt-0.5 shrink-0', accent.text)} />
-                  <span className="text-xs text-muted-foreground leading-snug">{b}</span>
+                  <span className="text-xs text-muted-foreground leading-snug">
+                    {sport === 'badminton' ? b.replace('Best of 5 per match', 'Best of 3, race to 21') : b}
+                  </span>
                 </div>
               ))}
             </div>

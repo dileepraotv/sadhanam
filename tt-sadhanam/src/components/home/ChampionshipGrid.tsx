@@ -140,7 +140,7 @@ function ChampCard({ champ: c }: { champ: OngoingChampRow }) {
                 }}
               />
             </div>
-            <p className="text-[9px] text-muted-foreground/50 tabular-nums">
+            <p className="text-[11px] text-muted-foreground/50 tabular-nums">
               {c.doneMatches}/{c.totalMatches} matches complete
             </p>
           </div>

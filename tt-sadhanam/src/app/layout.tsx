@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Suspense } from 'react'
 import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
@@ -8,6 +8,12 @@ import { GlobalLoaderProvider } from '@/components/shared/GlobalLoader'
 export const metadata: Metadata = {
   title:       'SADHANAM - Table Tennis Tournament Manager',
   description: 'Professional table tennis tournament brackets and live scoring',
+}
+
+export const viewport: Viewport = {
+  width:        'device-width',
+  initialScale: 1,
+  maximumScale: 5,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

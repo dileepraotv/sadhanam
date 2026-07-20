@@ -74,7 +74,14 @@ export default async function AdminEventPage({ params, searchParams }: PageProps
   const isTeamGroupCorbillon  = tournament.format_type === 'team_group_corbillon'
   const isTeamGroupSwaythling = tournament.format_type === 'team_group_swaythling'
   const isTeamGroupKO  = isTeamGroupCorbillon || isTeamGroupSwaythling
-  const isAnyTeamLeague = isTeamLeague || isTeamLeagueKO || isTeamSwaythling
+  // Badminton team cups — same seeded-KO-bracket shape as Corbillon/Swaythling
+  // KO, routed through TeamLeagueStage (see StagesTab.tsx for the standalone-
+  // tournament equivalent routing).
+  const isThomas    = tournament.format_type === 'team_thomas'
+  const isUber      = tournament.format_type === 'team_uber'
+  const isSudirman  = tournament.format_type === 'team_sudirman'
+  const isBadmintonTeamCup = isThomas || isUber || isSudirman
+  const isAnyTeamLeague = isTeamLeague || isTeamLeagueKO || isTeamSwaythling || isBadmintonTeamCup
   const liveCount      = matches.filter(m => m.status === 'live').length
   const rrMatches      = matches.filter(m => m.match_kind === 'round_robin')
   const koMatches      = matches.filter(m => m.match_kind === 'knockout' || !m.match_kind)
@@ -87,12 +94,12 @@ export default async function AdminEventPage({ params, searchParams }: PageProps
     isMultiStage   ? ['players','stage1','stage2'] :
     isSingleRR     ? (tournament.stage1_complete ? ['players','groups','knockout'] : ['players','groups']) :
     isTeamLeague   ? ['teams','schedule','knockout'] :
-    (isTeamLeagueKO || isTeamSwaythling) ? ['teams','knockout'] :
+    (isTeamLeagueKO || isTeamSwaythling || isBadmintonTeamCup) ? ['teams','knockout'] :
     isTeamGroupKO  ? ['teams','groups','knockout'] :
     ['players','stages']
   // When active/bracket generated, default to the action tab; for setup, show players/teams
   const defaultTabKey = (() => {
-    if (isTeamLeagueKO || isTeamSwaythling) {
+    if (isTeamLeagueKO || isTeamSwaythling || isBadmintonTeamCup) {
       return tournament.bracket_generated ? 'knockout' : 'teams'
     }
     if (isTeamLeague) {
@@ -120,7 +127,7 @@ export default async function AdminEventPage({ params, searchParams }: PageProps
         user={user}
         right={
           showPublicLink ? (
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="hidden sm:flex">
               <Link href={publicHref} target="_blank">
                 <ExternalLink className="h-3.5 w-3.5" /> Public View
               </Link>
@@ -333,6 +340,13 @@ export default async function AdminEventPage({ params, searchParams }: PageProps
               /* Render without outer TabsContent so it's always visible regardless of URL tab */
               <div className="mt-0">
                 <TeamGroupKOStage tournament={tournament} matchBase={matchBase} />
+              </div>
+            ) : isBadmintonTeamCup ? (
+              /* Thomas/Uber/Sudirman Cup — same seeded-KO shape as Corbillon/Swaythling KO,
+                 routed through TeamLeagueStage (see StagesTab.tsx for the standalone-tournament
+                 equivalent). TeamLeagueStage manages its own Teams/Knockout tabs internally. */
+              <div className="mt-0">
+                <TeamLeagueStage tournament={tournament} matchBase={matchBase} view="teams" showSeedInput />
               </div>
             ) : (
               /* Default: single_knockout */

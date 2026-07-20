@@ -98,6 +98,9 @@ const FORMAT_LABELS: Record<TournamentFormatType, string> = {
   team_group_swaythling:  'Teams - Groups + KO (Swaythling)',
   single_round_robin:     'Singles - Round Robin + Knockout',
   multi_rr_to_knockout:   'Singles - Round Robin + Knockout',
+  team_thomas:            'Teams - Thomas Cup',
+  team_uber:              'Teams - Uber Cup',
+  team_sudirman:          'Teams - Sudirman Cup',
 }
 
 interface Props { tournament: Tournament }

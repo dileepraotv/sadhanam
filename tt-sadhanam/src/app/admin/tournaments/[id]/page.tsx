@@ -91,7 +91,7 @@ export default async function AdminTournamentPage({ params, searchParams }: Page
           hasPublicView ? (
             <Button asChild variant="outline" size="sm">
               <Link href={publicHref} target="_blank">
-                <ExternalLink className="h-3.5 w-3.5" /> Public View
+                <ExternalLink className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Public View</span>
               </Link>
             </Button>
           ) : null

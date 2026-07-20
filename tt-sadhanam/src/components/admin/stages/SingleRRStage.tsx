@@ -35,6 +35,7 @@ import { ResetStageDialog } from './ResetStageDialog'
 import { FinalizeStage1Dialog } from './FinalizeStage1Dialog'
 import { createRRStage, resetStage, closeStage1, forceCloseStage1, deleteStageOnly } from '@/lib/actions/stages'
 import { generateGroups, generateFixtures } from '@/lib/actions/roundRobin'
+import { seedingMethodCaption, seedingMethodLabel } from '@/lib/roundrobin/seedingCopy'
 
 interface Props {
   tournament:  Tournament
@@ -219,7 +220,7 @@ export function SingleRRStage({
           variant="action"
           step="Step 2 of 3"
           title="Groups configured — assign players to groups"
-          description='Click "Assign Players to Groups" below to distribute players using snake seeding.'
+          description={`Click "Assign Players to Groups" below to distribute players using the ${seedingMethodLabel(tournament.sport_type)} method.`}
           onClick={handleAssign}
         />
       )}
@@ -264,6 +265,7 @@ export function SingleRRStage({
           players={players}
           onSubmit={handleCreate}
           isPending={isPending}
+          sport={tournament.sport_type}
         />
       )}
 
@@ -272,7 +274,7 @@ export function SingleRRStage({
         <Card>
           <CardHeader><CardTitle className="text-base">Group Configuration</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} />
+            <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} sport={tournament.sport_type} />
             <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/60">
               <Button onClick={handleAssign} disabled={isPending}>
                 <Users className="h-4 w-4" />
@@ -286,10 +288,10 @@ export function SingleRRStage({
               >
                 ← Reconfigure
               </Button>
-              <p className="text-xs text-muted-foreground sm:ml-auto">
-                Snake-seeds players based on their seeding values.
-              </p>
             </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {seedingMethodCaption(tournament.sport_type)}
+            </p>
           </CardContent>
         </Card>
       )}
@@ -299,7 +301,7 @@ export function SingleRRStage({
         <Card>
           <CardHeader><CardTitle className="text-base">Group Configuration</CardTitle></CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} />
+            <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} sport={tournament.sport_type} />
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-2 border-t border-border/60">
               <Button onClick={handleGenerateFixtures} disabled={isPending}>
                 <Shuffle className="h-4 w-4" />
@@ -339,7 +341,7 @@ export function SingleRRStage({
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} />
+              <RRConfigPanel players={players} onSubmit={handleCreate} isPending={isPending} existing={cfg} sport={tournament.sport_type} />
 
               {/* Progress bar */}
               <ProgressBar rrMatches={rrMatches} />
@@ -393,6 +395,7 @@ export function SingleRRStage({
               allowBestThird={cfg.allowBestThird}
               bestThirdCount={cfg.bestThirdCount}
               initialGroup={initialGroup}
+              sport={tournament.sport_type}
             />
           )}
         </>
@@ -418,6 +421,7 @@ export function SingleRRStage({
               allowBestThird={cfg.allowBestThird}
               bestThirdCount={cfg.bestThirdCount}
               initialGroup={initialGroup}
+              sport={tournament.sport_type}
             />
           )}
         </>

@@ -72,11 +72,11 @@ export default async function ChampionshipsPage({ searchParams }: PageProps) {
 
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="font-display text-3xl sm:text-4xl font-bold text-white tracking-wide mb-1 flex items-center gap-3">
-            <Trophy className="h-8 w-8 text-orange-100" />
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-foreground tracking-wide mb-1 flex items-center gap-3">
+            <Trophy className="h-8 w-8 text-orange-500" />
             Championships
           </h1>
-          <p className="text-orange-100/80 text-sm">
+          <p className="text-muted-foreground text-sm">
             {total} championship{total !== 1 ? 's' : ''} found
           </p>
         </div>
@@ -97,7 +97,7 @@ export default async function ChampionshipsPage({ searchParams }: PageProps) {
               {/* Hidden fields to preserve other filters */}
               {searchParams.year     && <input type="hidden" name="year"     value={searchParams.year} />}
               {searchParams.location && <input type="hidden" name="location" value={searchParams.location} />}
-              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-2 py-1 rounded transition-colors">
+              <button type="submit" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 min-w-[44px] bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 rounded transition-colors">
                 Go
               </button>
             </form>
@@ -109,12 +109,12 @@ export default async function ChampionshipsPage({ searchParams }: PageProps) {
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">Year</label>
               <div className="flex flex-wrap gap-1.5">
                 <Link href={buildUrl({ year: undefined, page: '1' })}
-                  className={`text-xs px-2.5 py-1.5 rounded-full border font-semibold transition-colors ${!searchParams.year ? 'bg-orange-500 text-white border-orange-500' : 'bg-card text-muted-foreground border-border hover:border-orange-400'}`}>
+                  className={`text-xs px-3 py-2 rounded-full border font-semibold transition-colors ${!searchParams.year ? 'bg-orange-500 text-white border-orange-500' : 'bg-card text-muted-foreground border-border hover:border-orange-400'}`}>
                   All
                 </Link>
                 {years.slice(0, 5).map(y => (
                   <Link key={y} href={buildUrl({ year: String(y), page: '1' })}
-                    className={`text-xs px-2.5 py-1.5 rounded-full border font-semibold transition-colors ${searchParams.year === String(y) ? 'bg-orange-500 text-white border-orange-500' : 'bg-card text-muted-foreground border-border hover:border-orange-400'}`}>
+                    className={`text-xs px-3 py-2 rounded-full border font-semibold transition-colors ${searchParams.year === String(y) ? 'bg-orange-500 text-white border-orange-500' : 'bg-card text-muted-foreground border-border hover:border-orange-400'}`}>
                     {y}
                   </Link>
                 ))}
@@ -128,12 +128,12 @@ export default async function ChampionshipsPage({ searchParams }: PageProps) {
               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">Location</label>
               <div className="flex flex-wrap gap-1.5">
                 <Link href={buildUrl({ location: undefined, page: '1' })}
-                  className={`text-xs px-2.5 py-1.5 rounded-full border font-semibold transition-colors ${!searchParams.location ? 'bg-orange-500 text-white border-orange-500' : 'bg-card text-muted-foreground border-border hover:border-orange-400'}`}>
+                  className={`text-xs px-3 py-2 rounded-full border font-semibold transition-colors ${!searchParams.location ? 'bg-orange-500 text-white border-orange-500' : 'bg-card text-muted-foreground border-border hover:border-orange-400'}`}>
                   All
                 </Link>
                 {locations.slice(0, 6).map(l => (
                   <Link key={l} href={buildUrl({ location: l!, page: '1' })}
-                    className={`text-xs px-2.5 py-1.5 rounded-full border font-semibold transition-colors ${searchParams.location === l ? 'bg-orange-500 text-white border-orange-500' : 'bg-card text-muted-foreground border-border hover:border-orange-400'}`}>
+                    className={`text-xs px-3 py-2 rounded-full border font-semibold transition-colors ${searchParams.location === l ? 'bg-orange-500 text-white border-orange-500' : 'bg-card text-muted-foreground border-border hover:border-orange-400'}`}>
                     {l}
                   </Link>
                 ))}

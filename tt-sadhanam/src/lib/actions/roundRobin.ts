@@ -23,7 +23,7 @@
 
 import { revalidatePath }  from 'next/cache'
 import { createClient }    from '@/lib/supabase/server'
-import type { MatchFormat, Stage, RRStageConfig } from '@/lib/types'
+import type { MatchFormat, Stage, RRStageConfig, SportType } from '@/lib/types'
 import { generateMultiGroupSchedule } from '@/lib/roundrobin/scheduler'
 import {
   computeAllGroupStandings,
@@ -32,6 +32,7 @@ import {
 import type { RRGroup, GroupStandings } from '@/lib/roundrobin/types'
 import { BYE_PLAYER_ID } from '@/lib/roundrobin/types'
 import { revalidateTournamentPaths } from '@/lib/actions/stages'
+import { assignSeededPlayersToGroups, pickClubAwareGroup, recordClub } from '@/lib/roundrobin/seeding'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // generateGroups
@@ -48,16 +49,20 @@ import { revalidateTournamentPaths } from '@/lib/actions/stages'
 //    Players with preferred_group set are placed into their designated group
 //    first (1=A, 2=B, …). If a preferred_group is out of range it is ignored.
 //
-//  Pass 2 — Snake-seed remaining seeded players into groups with most room
-//    To give highest seeds maximum qualifying chance, seeded players are
-//    snake-distributed across groups ordered by remaining capacity (largest
-//    first). This ensures top seeds are spread across the biggest groups so
-//    they never meet each other in the group stage.
-//    Snake rule (even passes →, odd passes ←) prevents two strong seeds
-//    landing in the same group.
+//  Pass 2 — Sport-aware seed placement (src/lib/roundrobin/seeding.ts)
+//    table_tennis  — "Modified Snake" (ITTF): seeds 1..G go directly to
+//      Groups 1..G in order; every later band of G seeds gives each group
+//      exactly one player from that band, but which seed lands where is
+//      drawn by lot (randomized) rather than fixed alternation.
+//    badminton     — BWF draw: Seed 1 -> Group A, Seed 2 -> Group B (fixed);
+//      seeds 3-4, 5-8, 9-16, … are drawn by lot into the remaining group
+//      tops (band size doubling) until every group has one seed.
+//    Both sports apply best-effort club/association separation — a same-club
+//    clash is avoided when an alternative eligible group exists.
 //
 //  Pass 3 — Remaining unseeded players round-robin into remaining slots
-//    Shuffled randomly, then assigned cyclically so no group is starved.
+//    Shuffled randomly, then assigned cyclically so no group is starved,
+//    with the same best-effort club-separation preference as Pass 2.
 //
 // Idempotent: clears existing member rows before inserting.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,19 +75,20 @@ export async function generateGroups(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Load groups for this stage
-  const { data: groups, error: grpErr } = await supabase
-    .from('rr_groups')
-    .select('id, group_number')
-    .eq('stage_id', stageId)
-    .order('group_number')
+  // Load groups for this stage, and the tournament's sport (drives seeding method)
+  const [groupsRes, tournamentRes] = await Promise.all([
+    supabase.from('rr_groups').select('id, group_number').eq('stage_id', stageId).order('group_number'),
+    supabase.from('tournaments').select('sport_type').eq('id', tournamentId).maybeSingle(),
+  ])
+  const { data: groups, error: grpErr } = groupsRes
+  const sport: SportType = (tournamentRes.data?.sport_type as SportType | undefined) ?? 'table_tennis'
 
   if (grpErr || !groups?.length) return { error: 'No groups found for this stage' }
 
-  // Load all players WITH preferred_group
+  // Load all players WITH preferred_group + club (best-effort club/association separation)
   const { data: players, error: pErr } = await supabase
     .from('players')
-    .select('id, name, seed, preferred_group')
+    .select('id, name, seed, preferred_group, club')
     .eq('tournament_id', tournamentId)
 
   if (pErr) return { error: pErr.message }
@@ -93,6 +99,8 @@ export async function generateGroups(
 
   // Build assignment map: groupId → [playerId, …]
   const groupAssign: Map<string, string[]> = new Map(groups.map(g => [g.id, []]))
+  // Tracks which clubs already have a player in each group, for best-effort separation.
+  const groupClubs: Map<string, Set<string>> = new Map()
 
   // ── PASS 1: Honour preferred_group from Excel ─────────────────────────────
   const unassigned: typeof players = []
@@ -102,6 +110,7 @@ export async function generateGroups(
       // Convert 1-based preferred_group → group index
       const targetId = groupIds[pg - 1]
       groupAssign.get(targetId)!.push(p.id)
+      recordClub(targetId, p.club ?? null, groupClubs)
     } else {
       unassigned.push(p)
     }
@@ -119,44 +128,35 @@ export async function generateGroups(
   // Maximum players per group: ceil(total / numGroups).
   const globalCeil   = Math.ceil(totalPlayers / G)
 
-  // ── True snake seeding for seeded players ──────────────────────────────────
-  // Pass 1→G (left-to-right), then G→1 (right-to-left), alternating.
-  // e.g. 4 groups: seed1→A, seed2→B, seed3→C, seed4→D, seed5→D, seed6→C, …
-  const remainingSeeded   = unassigned.filter(p => p.seed != null).sort((a, b) => a.seed! - b.seed!)
+  // ── Sport-aware seed placement (Modified Snake / BWF draw, see seeding.ts) ──
+  const remainingSeeded   = unassigned
+    .filter(p => p.seed != null)
+    .sort((a, b) => a.seed! - b.seed!)
+    .map(p => ({ id: p.id, seed: p.seed!, club: p.club ?? null }))
   const remainingUnseeded = unassigned.filter(p => p.seed == null)
   shuffleArray(remainingUnseeded, rngSeed)
 
-  // Build snake order: repeat [0,1,…,G-1, G-1,…,0] until all seeded players placed
-  const snakeOrder: string[] = []
-  let pass = 0
-  while (snakeOrder.length < remainingSeeded.length) {
-    const isForward = pass % 2 === 0
-    const slice = isForward
-      ? groupIds.slice()                    // A → D
-      : groupIds.slice().reverse()          // D → A
-    for (const gid of slice) {
-      if (snakeOrder.length >= remainingSeeded.length) break
-      snakeOrder.push(gid)
-    }
-    pass++
-  }
-  for (let i = 0; i < remainingSeeded.length; i++) {
-    groupAssign.get(snakeOrder[i])!.push(remainingSeeded[i].id)
+  const rng = rngSeed !== undefined ? mulberry32(rngSeed + 1) : Math.random
+  const seededPlacements = assignSeededPlayersToGroups(sport, remainingSeeded, groupIds, groupClubs, rng)
+  for (const [gid, pids] of seededPlacements) {
+    groupAssign.get(gid)!.push(...pids)
   }
 
-  // ── Round-robin fill for unseeded players ─────────────────────────────────
+  // ── Round-robin fill for unseeded players (club-aware) ────────────────────
   let rrTie = 0
-  function pickBestGroup(playerId: string) {
+  function pickBestGroup(playerId: string, club: string | null) {
     const eligible = groupIds.filter(gid => groupAssign.get(gid)!.length < globalCeil)
     const pool     = eligible.length ? eligible : groupIds
     const minSize  = Math.min(...pool.map(gid => groupAssign.get(gid)!.length))
     const smallest = pool.filter(gid => groupAssign.get(gid)!.length === minSize)
-    const chosen   = smallest[rrTie % smallest.length]
+    const defaultChoice = smallest[rrTie % smallest.length]
     rrTie++
+    const chosen = pickClubAwareGroup(smallest, club, groupClubs, defaultChoice)
     groupAssign.get(chosen)!.push(playerId)
+    recordClub(chosen, club, groupClubs)
   }
 
-  for (const p of remainingUnseeded) pickBestGroup(p.id)
+  for (const p of remainingUnseeded) pickBestGroup(p.id, p.club ?? null)
 
   // ── Validate: every group must have ≥ 2 players to be playable ───────────
   // With the fill-then-spill algorithm this should never fire (the UI prevents

@@ -177,9 +177,9 @@ function StandingsTable({ standings, advanceCount }: {
   }
 
   return (
-    <div className="rounded-xl border border-border/60 overflow-hidden">
+    <div className="rounded-xl border border-border/60 overflow-hidden overflow-x-auto">
       {/* Header */}
-      <div className="grid grid-cols-[auto_1fr_repeat(5,auto)] gap-x-3 px-4 py-2 bg-muted/30 border-b border-border/40 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+      <div className="grid grid-cols-[auto_1fr_repeat(5,auto)] gap-x-3 px-4 py-2 bg-muted/30 border-b border-border/40 text-[10px] font-bold uppercase tracking-widest text-muted-foreground min-w-[340px]">
         <span className="w-5 text-center">#</span>
         <span>Player</span>
         <span className="w-7 text-center">MP</span>
@@ -198,7 +198,7 @@ function StandingsTable({ standings, advanceCount }: {
         return (
           <div key={p.playerId}>
             <div className={cn(
-              'grid grid-cols-[auto_1fr_repeat(5,auto)] gap-x-3 px-4 py-2.5 text-sm',
+              'grid grid-cols-[auto_1fr_repeat(5,auto)] gap-x-3 px-4 py-2.5 text-sm min-w-[340px]',
               'transition-colors',
               idx % 2 === 0 ? 'bg-transparent' : 'bg-muted/10',
               isQualifier && 'bg-green-50/50 dark:bg-green-950/10',
