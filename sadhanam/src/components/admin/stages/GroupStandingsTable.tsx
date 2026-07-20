@@ -261,6 +261,7 @@ export function GroupStandingsTable({
                   </div>
                   <div className="flex flex-col gap-1.5">
                     {sortedDay
+                      .filter(m => m.status !== 'bye')
                       .filter(m => m.status !== 'pending' || m.player1_id || m.player2_id)
                       .map(m => (
                         <FixtureRow key={m.id} match={m} matchBase={matchBase} isAdmin={isAdmin} sport={sport} />
