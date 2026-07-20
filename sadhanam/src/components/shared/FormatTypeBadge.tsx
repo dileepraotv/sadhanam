@@ -26,9 +26,18 @@
 
 import { Swords, Users, Layers, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { sportEmoji, SPORT_CONFIG } from '@/components/shared/SportBadge'
+import type { SportType } from '@/lib/types'
 
 interface FormatTypeBadgeProps {
   formatType: string | null | undefined
+  /**
+   * Optional sport discriminator. When provided, the badge label is
+   * prefixed with the sport (e.g. "🏸 Badminton · Singles · RR") so
+   * table tennis and badminton events are distinguishable at a glance
+   * even where a separate SportBadge isn't shown alongside this one.
+   */
+  sportType?: SportType | null
   size?: 'sm' | 'md'
   className?: string
 }
@@ -115,11 +124,15 @@ const FALLBACK: BadgeConfig = {
 
 export function FormatTypeBadge({
   formatType,
+  sportType,
   size = 'md',
   className,
 }: FormatTypeBadgeProps) {
   const cfg = formatType ? (FORMAT_MAP[formatType] ?? FALLBACK) : FORMAT_MAP['single_knockout']
-  const { label, color, Icon } = cfg
+  const { color, Icon } = cfg
+  const label = sportType
+    ? `${sportEmoji(sportType)} ${SPORT_CONFIG[sportType].label} · ${cfg.label}`
+    : cfg.label
 
   const textSize   = size === 'sm' ? 'text-[10px]' : 'text-xs'
   const padding    = size === 'sm' ? 'px-1.5 py-0.5' : 'px-2 py-0.5'

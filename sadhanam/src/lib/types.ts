@@ -274,6 +274,7 @@ export interface ActiveEventRow {
   champId:      string | null
   champName:    string | null
   formatType:   string | null
+  sportType:    SportType
   status:       string
   stageLabel:   string
   progress:     number

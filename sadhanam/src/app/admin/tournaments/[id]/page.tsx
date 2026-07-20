@@ -143,7 +143,7 @@ export default async function AdminTournamentPage({ params, searchParams }: Page
                       {formatFormatLabel(tournament.format)}
                     </span>
                   )}
-                  <FormatTypeBadge formatType={formatType} />
+                  <FormatTypeBadge formatType={formatType} sportType={tournament.sport_type} />
                 </div>
               </div>
             </div>

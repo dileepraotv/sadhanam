@@ -66,7 +66,7 @@ async function getHomeData(userId: string | null) {
     `).eq('status', 'live').order('updated_at', { ascending: false }).limit(10),
     champQ,
     supabase.from('tournaments').select(`
-      id, name, status, format_type, championship_id,
+      id, name, status, format_type, sport_type, championship_id,
       bracket_generated, stage1_complete, stage2_bracket_generated, updated_at,
       championships ( id, name )
     `).not('championship_id', 'is', null)
@@ -214,6 +214,7 @@ async function getHomeData(userId: string | null) {
       champId:      ev.championship_id ?? null,
       champName:    champ?.name ?? null,
       formatType:   ev.format_type ?? null,
+      sportType:    (ev as unknown as { sport_type?: 'table_tennis' | 'badminton' }).sport_type ?? 'table_tennis',
       status:       ev.status,
       stageLabel:   deriveStageLabel(ev),
       progress,
@@ -312,7 +313,7 @@ export default async function HomePage() {
                 </h1>
               </div>
               <p className="text-sm text-muted-foreground">
-                Real-time table tennis tournament tracking
+                Real-time tournament hosting and tracking
                 <span className="hidden sm:inline"> · Live brackets · Scores</span>
               </p>
             </div>

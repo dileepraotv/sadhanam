@@ -162,7 +162,7 @@ export default async function AdminEventPage({ params, searchParams }: PageProps
                     {tournament.status}
                   </Badge>
                   {liveCount > 0 && <LiveBadge label={`${liveCount} LIVE`} />}
-                  <FormatTypeBadge formatType={tournament.format_type} />
+                  <FormatTypeBadge formatType={tournament.format_type} sportType={tournament.sport_type} />
                 </div>
               </div>
               <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground flex-wrap">

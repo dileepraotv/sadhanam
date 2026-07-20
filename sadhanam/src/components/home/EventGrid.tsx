@@ -3,12 +3,20 @@
  *
  * Compact cards showing format badge, championship context,
  * current stage, live indicator, and progress bar.
+ *
+ * Also renders sport filter tabs (All / 🏓 Table Tennis / 🏸 Badminton)
+ * when the active events span more than one sport.
  */
 
+'use client'
+
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Swords, Users, Layers, ChevronRight } from 'lucide-react'
 import { LiveBadge } from '@/components/shared/LiveBadge'
 import { Badge } from '@/components/ui/index'
+import { SportBadge, sportAccentColor } from '@/components/shared/SportBadge'
+import { SportFilterTabs, type SportFilter } from '@/components/shared/SportFilterTabs'
 import { cn } from '@/lib/utils'
 import type { ActiveEventRow } from './types'
 
@@ -17,6 +25,15 @@ interface Props {
 }
 
 export function EventGrid({ events }: Props) {
+  const [filter, setFilter] = useState<SportFilter>('all')
+
+  const sportsPresent = useMemo(
+    () => new Set(events.map((ev) => ev.sportType)),
+    [events],
+  )
+
+  const filtered = filter === 'all' ? events : events.filter((ev) => ev.sportType === filter)
+
   if (events.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border/50 bg-card/30 p-8 text-center">
@@ -26,10 +43,15 @@ export function EventGrid({ events }: Props) {
   }
 
   return (
-    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-      {events.map((ev) => (
-        <EventCard key={ev.id} event={ev} />
-      ))}
+    <div className="space-y-3">
+      {sportsPresent.size > 1 && (
+        <SportFilterTabs filter={filter} onChange={setFilter} />
+      )}
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        {filtered.map((ev) => (
+          <EventCard key={ev.id} event={ev} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -76,6 +98,7 @@ function EventCard({ event: ev }: { event: ActiveEventRow }) {
     : `/tournaments/${ev.id}`
 
   const isLive = ev.liveCount > 0
+  const accent = sportAccentColor(ev.sportType)
 
   return (
     <Link
@@ -88,7 +111,7 @@ function EventCard({ event: ev }: { event: ActiveEventRow }) {
           : 'border-border hover:border-orange-400/40 hover:shadow-black/6',
       )}
     >
-      {/* Status stripe */}
+      {/* Status stripe — tinted by sport when idle, orange/green when live/done */}
       <div
         className="absolute top-0 left-0 right-0 h-[2px]"
         style={{
@@ -96,8 +119,15 @@ function EventCard({ event: ev }: { event: ActiveEventRow }) {
             ? 'linear-gradient(90deg, #F06321, #F5853F)'
             : ev.progress >= 100
               ? '#22c55e'
-              : 'transparent',
+              : accent,
+          opacity: isLive || ev.progress >= 100 ? 1 : 0.5,
         }}
+      />
+
+      {/* Sport accent bar on the left edge for quick scanning */}
+      <div
+        className="absolute top-0 left-0 bottom-0 w-[3px]"
+        style={{ background: accent }}
       />
 
       {/* Championship label */}
@@ -121,8 +151,9 @@ function EventCard({ event: ev }: { event: ActiveEventRow }) {
         )}
       </div>
 
-      {/* Format + stage */}
+      {/* Sport + format + stage */}
       <div className="flex items-center gap-1.5 flex-wrap">
+        <SportBadge sportType={ev.sportType} size="sm" />
         <FormatBadge formatType={ev.formatType} />
         <span className="text-[11px] text-muted-foreground/70 truncate">{ev.stageLabel}</span>
       </div>

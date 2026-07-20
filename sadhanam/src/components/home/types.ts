@@ -42,6 +42,7 @@ export interface ActiveEventRow {
   champId:      string | null
   champName:    string | null
   formatType:   string | null   // 'single_knockout' | 'single_round_robin' | 'multi_rr_to_knockout'
+  sportType:    'table_tennis' | 'badminton'
   status:       string
   stageLabel:   string          // human-readable current stage
   progress:     number          // 0–100
