@@ -15,12 +15,12 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Trophy, ArrowRight, Users } from 'lucide-react'
 import { FormatTypeBadge } from '@/components/shared/FormatTypeBadge'
-import { SportBadge, sportAccentColor } from '@/components/shared/SportBadge'
+import { SportBadge, sportAccentColor, SPORT_CONFIG } from '@/components/shared/SportBadge'
 import { SportFilterTabs, type SportFilter } from '@/components/shared/SportFilterTabs'
 import { Badge } from '@/components/ui/index'
 import { LiveBadge } from '@/components/shared/LiveBadge'
 import { formatFormatLabel } from '@/lib/utils'
-import type { Tournament } from '@/lib/types'
+import type { SportType, Tournament } from '@/lib/types'
 
 type EventWithCounts = Tournament & { _live: number; _done: number; _total: number; _winner?: string }
 
@@ -28,6 +28,8 @@ interface Props {
   cid:    string
   events: EventWithCounts[]
 }
+
+const SPORT_ORDER: SportType[] = ['table_tennis', 'badminton']
 
 export function PublicEventsGrid({ cid, events }: Props) {
   const [filter, setFilter] = useState<SportFilter>('all')
@@ -41,13 +43,32 @@ export function PublicEventsGrid({ cid, events }: Props) {
     ? events
     : events.filter((ev) => (ev.sport_type ?? 'table_tennis') === filter)
 
+  // When showing everything and more than one sport is present, group into
+  // sport sections instead of interleaving both sports in one flat grid —
+  // much easier to scan than relying solely on the per-card badge/accent.
+  const showGrouped = filter === 'all' && sportsPresent.size > 1
+  const groups: { sport: SportType; items: EventWithCounts[] }[] = showGrouped
+    ? SPORT_ORDER
+        .filter(s => sportsPresent.has(s))
+        .map(s => ({ sport: s, items: filtered.filter(ev => (ev.sport_type ?? 'table_tennis') === s) }))
+    : [{ sport: 'table_tennis', items: filtered }]
+
   return (
     <div className="space-y-4">
       {sportsPresent.size > 1 && (
         <SportFilterTabs filter={filter} onChange={setFilter} />
       )}
+      {groups.map(group => (
+      <div key={group.sport} className="space-y-3">
+        {showGrouped && (
+          <h3 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+            <span aria-hidden="true">{SPORT_CONFIG[group.sport].emoji}</span>
+            {SPORT_CONFIG[group.sport].label}
+            <span className="text-xs font-normal text-muted-foreground">({group.items.length})</span>
+          </h3>
+        )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map(ev => {
+        {group.items.map(ev => {
           const progress = ev._total ? Math.round((ev._done / ev._total) * 100) : 0
           const accent = sportAccentColor(ev.sport_type)
 
@@ -96,7 +117,7 @@ export function PublicEventsGrid({ cid, events }: Props) {
                   </div>
                   <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
                     <div className="h-full rounded-full transition-all"
-                      style={{ width: `${progress}%`, background: '#F06321' }} />
+                      style={{ width: `${progress}%`, background: accent }} />
                   </div>
                 </div>
               )}
@@ -111,6 +132,8 @@ export function PublicEventsGrid({ cid, events }: Props) {
           )
         })}
       </div>
+      </div>
+      ))}
       {filtered.length === 0 && (
         <div className="surface-card p-12 text-center">
           <Trophy className="h-10 w-10 mx-auto mb-3" style={{ color: '#F06321', opacity: 0.25 }} />

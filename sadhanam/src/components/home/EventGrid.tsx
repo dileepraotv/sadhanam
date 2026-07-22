@@ -15,14 +15,17 @@ import Link from 'next/link'
 import { Swords, Users, Layers, ChevronRight } from 'lucide-react'
 import { LiveBadge } from '@/components/shared/LiveBadge'
 import { Badge } from '@/components/ui/index'
-import { SportBadge, sportAccentColor } from '@/components/shared/SportBadge'
+import { SportBadge, sportAccentColor, SPORT_CONFIG } from '@/components/shared/SportBadge'
 import { SportFilterTabs, type SportFilter } from '@/components/shared/SportFilterTabs'
 import { cn } from '@/lib/utils'
+import type { SportType } from '@/lib/types'
 import type { ActiveEventRow } from './types'
 
 interface Props {
   events: ActiveEventRow[]
 }
+
+const SPORT_ORDER: SportType[] = ['table_tennis', 'badminton']
 
 export function EventGrid({ events }: Props) {
   const [filter, setFilter] = useState<SportFilter>('all')
@@ -34,6 +37,15 @@ export function EventGrid({ events }: Props) {
 
   const filtered = filter === 'all' ? events : events.filter((ev) => ev.sportType === filter)
 
+  // Group into sport sections when showing everything with more than one
+  // sport present — avoids interleaving both sports in one flat grid.
+  const showGrouped = filter === 'all' && sportsPresent.size > 1
+  const groups: { sport: SportType; items: ActiveEventRow[] }[] = showGrouped
+    ? SPORT_ORDER
+        .filter(s => sportsPresent.has(s))
+        .map(s => ({ sport: s, items: filtered.filter(ev => ev.sportType === s) }))
+    : [{ sport: 'table_tennis', items: filtered }]
+
   if (events.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border/50 bg-card/30 p-8 text-center">
@@ -43,15 +55,26 @@ export function EventGrid({ events }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {sportsPresent.size > 1 && (
         <SportFilterTabs filter={filter} onChange={setFilter} />
       )}
-      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((ev) => (
-          <EventCard key={ev.id} event={ev} />
-        ))}
-      </div>
+      {groups.map(group => (
+        <div key={group.sport} className="space-y-2.5">
+          {showGrouped && (
+            <h3 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+              <span aria-hidden="true">{SPORT_CONFIG[group.sport].emoji}</span>
+              {SPORT_CONFIG[group.sport].label}
+              <span className="text-xs font-normal text-muted-foreground">({group.items.length})</span>
+            </h3>
+          )}
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {group.items.map((ev) => (
+              <EventCard key={ev.id} event={ev} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

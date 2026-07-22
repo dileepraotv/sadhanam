@@ -83,6 +83,7 @@ export function PlayerManager({ tournament, players }: PlayerManagerProps) {
     fd.set('name', trimmed)
     fd.set('club', club.trim())
     if (seed) fd.set('seed', seed)
+    if (group) fd.set('preferred_group', group)
     setLoading(true)
     startTransition(async () => {
       try {

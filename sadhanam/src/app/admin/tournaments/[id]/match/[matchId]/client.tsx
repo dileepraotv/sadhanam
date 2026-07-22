@@ -31,6 +31,7 @@ import { FORMAT_CONFIGS, SPORT_RULES } from '@/lib/scoring/types'
 import type { ComputedMatchState } from '@/lib/scoring/types'
 import type { SportType } from '@/lib/types'
 import { useLoading } from '@/components/shared/GlobalLoader'
+import { sportUi, type SportUiClasses } from '@/components/shared/SportBadge'
 
 interface LocalScore { s1: string; s2: string }
 
@@ -139,6 +140,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
   const cfg        = FORMAT_CONFIGS[activeFormat as keyof typeof FORMAT_CONFIGS] ?? FORMAT_CONFIGS.bo5
   const sport: SportType = tournament.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
   const sportRules = SPORT_RULES[sport]
+  const ui = sportUi(sport)
   const isTeamSub  = (match as unknown as { match_kind?: string }).match_kind === 'team_submatch'
   const _ep1       = match.player1_id ?? (isTeamSub ? 'TEAM_A' : null)
   const _ep2       = match.player2_id ?? (isTeamSub ? 'TEAM_B' : null)
@@ -256,7 +258,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
   return (
     <div className="min-h-screen flex flex-col">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-40 border-b border-orange-600/40" style={{ background: '#F06321' }}>
+      <header className="sticky top-0 z-40 border-b border-black/10" style={{ background: ui.hex }}>
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-3 px-3 sm:px-4">
           <Link
             href={backHref ?? `/admin/tournaments/${tournament.id}?tab=stages`}
@@ -305,7 +307,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
         <div className="surface-card p-4 sm:p-6 flex flex-col gap-5">
 
           {/* Scoreboard */}
-          <ScoreboardHeader match={match} matchState={matchState} activeFormat={activeFormat} isComplete={isComplete} isLive={isLive} />
+          <ScoreboardHeader match={match} matchState={matchState} activeFormat={activeFormat} isComplete={isComplete} isLive={isLive} ui={ui} />
 
           {/* Format selector */}
           {!isComplete && (
@@ -320,8 +322,8 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
                     className={cn(
                       'px-3 py-1.5 rounded-full text-xs font-bold border transition-colors',
                       activeFormat === fmt
-                        ? 'bg-orange-500 text-white border-orange-500'
-                        : 'bg-card border-border text-muted-foreground hover:border-orange-400 hover:text-foreground',
+                        ? `${ui.bgSolid} text-white ${ui.border}`
+                        : `bg-card border-border text-muted-foreground ${ui.hoverBorder} hover:text-foreground`,
                     )}
                   >
                     {FORMAT_CONFIGS[fmt].label}
@@ -349,7 +351,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
                 <CardTitle className="flex items-center justify-between text-base">
                   <span>Game Scores</span>
                   <span className="text-xs font-normal text-muted-foreground font-sans">
-                    To 11 points · win by 2
+                    To {sportRules.unitWinThreshold} points · win by 2
                   </span>
                 </CardTitle>
               </CardHeader>
@@ -373,6 +375,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
                     matchState={matchState}
                     activeFormat={activeFormat}
                     sport={sport}
+                    ui={ui}
                     isMatchComplete={isComplete}
                     isTeamSubmatch={isTeamSub}
                     isPending={isPending}
@@ -389,7 +392,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
                 <div className="pt-3 border-t border-border/40 mt-2 flex flex-col gap-2">
                   <Button
                     className="w-full gap-2 font-bold text-sm"
-                    style={{ background: '#F06321', color: '#fff' }}
+                    style={{ background: ui.hex, color: '#fff' }}
                     onClick={handleSaveAll}
                     disabled={isPending}
                   >
@@ -465,7 +468,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
               {/* Step 2: confirm — enabled only when a slot is selected */}
               <Button
                 className="w-full gap-2 font-bold"
-                style={selectedWinnerSlot ? { background: '#F06321', color: '#fff' } : undefined}
+                style={selectedWinnerSlot ? { background: ui.hex, color: '#fff' } : undefined}
                 variant={selectedWinnerSlot ? 'default' : 'outline'}
                 onClick={() => {
                   if (!selectedWinnerSlot) return
@@ -486,7 +489,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
 
           {/* Winner celebration */}
           {isComplete && (match.winner || isTeamSub) && (
-            <div className="rounded-2xl border border-orange-300 dark:border-orange-700/60 bg-orange-100 dark:bg-orange-900/30 p-6 text-center animate-fade-in">
+            <div className={cn('rounded-2xl border p-6 text-center animate-fade-in', ui.borderLight, ui.bgLight)}>
               <Trophy className="h-8 w-8 text-amber-400 mx-auto mb-3" />
               <p className="font-display text-2xl font-bold tracking-wide">
                 {isTeamSub
@@ -500,7 +503,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
               </p>
               <Link
                 href={backHref ?? `/admin/tournaments/${tournament.id}?tab=stages`}
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-background font-semibold text-sm px-4 py-2 transition-colors"
+                className={cn('mt-4 inline-flex items-center gap-2 rounded-lg text-background font-semibold text-sm px-4 py-2 transition-colors', ui.bgSolid, ui.hoverBgSolid)}
               >
                 <ArrowLeft className="h-4 w-4" />
                 {matchKind === 'round_robin' ? 'Back to Groups' : 'Back to Bracket'}
@@ -516,12 +519,13 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
 
 // ── ScoreboardHeader ──────────────────────────────────────────────────────────
 
-function ScoreboardHeader({ match, matchState, activeFormat, isComplete, isLive }: {
+function ScoreboardHeader({ match, matchState, activeFormat, isComplete, isLive, ui }: {
   match:        Match
   matchState:   ComputedMatchState
   activeFormat: MatchFormat
   isComplete:   boolean
   isLive:       boolean
+  ui:           SportUiClasses
 }) {
   const isTeamSub  = (match as unknown as { match_kind?: string }).match_kind === 'team_submatch'
   const p1Win      = isComplete && (isTeamSub ? matchState.outcome === 'player1_wins' : match.winner_id === match.player1_id)
@@ -558,7 +562,7 @@ function ScoreboardHeader({ match, matchState, activeFormat, isComplete, isLive 
             isComplete
               ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
               : isLive
-              ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'
+              ? `${ui.bgLight} ${ui.text}`
               : 'bg-muted text-muted-foreground',
           )}>
             {FORMAT_CONFIGS[activeFormat].label}
@@ -567,7 +571,7 @@ function ScoreboardHeader({ match, matchState, activeFormat, isComplete, isLive 
         <PlayerCol player={match.player2} games={matchState.player2Games} isWinner={p2Win} side="right" />
       </div>
       {isLive     && <div className="h-1 bg-gradient-to-r from-cyan-500/30 via-cyan-400 to-cyan-500/30 animate-pulse-slow" />}
-      {isComplete && <div className="h-1 bg-orange-500/70" />}
+      {isComplete && <div className={cn('h-1', ui.bgSolid, 'opacity-70')} />}
     </div>
   )
 }
@@ -601,7 +605,7 @@ function PlayerCol({ player, games, isWinner, side }: {
 // ── GameRow ───────────────────────────────────────────────────────────────────
 
 function GameRow({
-  gameNum, savedGame, localScore, match, matchState, activeFormat, sport,
+  gameNum, savedGame, localScore, match, matchState, activeFormat, sport, ui,
   isMatchComplete, isTeamSubmatch, isPending,
   onScoreChange, onDelete, onReset,
 }: {
@@ -611,6 +615,7 @@ function GameRow({
   match:           Match
   matchState:      ComputedMatchState
   sport:           SportType
+  ui:              SportUiClasses
   activeFormat:    MatchFormat
   isMatchComplete: boolean
   isTeamSubmatch:  boolean
@@ -652,14 +657,14 @@ function GameRow({
       'flex flex-col rounded-xl px-1 py-1 transition-colors',
       savedGame && 'bg-muted/20',
       isAfterDeciding && 'opacity-40 pointer-events-none',
-      isDeciding && savedGame && 'ring-1 ring-orange-400/20',
+      isDeciding && savedGame && cn('ring-1', ui.ringSoft),
     )}>
       <div className="grid grid-cols-[28px_1fr_12px_1fr_44px] sm:grid-cols-[36px_1fr_16px_1fr_52px] gap-1.5 sm:gap-2 items-center">
         <div className="flex justify-center">
           <span className={cn(
             'font-display text-xs font-bold w-8 h-8 rounded-full flex items-center justify-center shrink-0',
             savedGame ? 'bg-muted text-foreground' : 'border border-border text-muted-foreground',
-            isDeciding && savedGame ? 'bg-orange-200/60 dark:bg-orange-900/40 border-orange-400 text-orange-600 dark:text-orange-400' : '',
+            isDeciding && savedGame ? cn(ui.bgSoft, ui.border, ui.text) : '',
           )}>
             {gameNum}
           </span>
@@ -670,6 +675,7 @@ function GameRow({
           isWinner={saved_p1Won}
           hasError={bothFilled && hasNumbers && !scoreValid}
           disabled={isAfterDeciding || (!match.player1_id && !isTeamSubmatch)}
+          ui={ui}
         />
         <span className="text-muted-foreground text-center font-bold text-sm select-none">–</span>
         <ScoreInput
@@ -678,6 +684,7 @@ function GameRow({
           isWinner={saved_p2Won}
           hasError={bothFilled && hasNumbers && !scoreValid}
           disabled={isAfterDeciding || (!match.player2_id && !isTeamSubmatch)}
+          ui={ui}
         />
         <div className="flex gap-1 justify-end">
           {savedGame && !isDirty && (
@@ -718,12 +725,13 @@ function GameRow({
 
 // ── ScoreInput ────────────────────────────────────────────────────────────────
 
-function ScoreInput({ value, onChange, isWinner, hasError, disabled }: {
+function ScoreInput({ value, onChange, isWinner, hasError, disabled, ui }: {
   value:    string
   onChange: (v: string) => void
   isWinner: boolean
   hasError: boolean
   disabled?: boolean
+  ui:       SportUiClasses
 }) {
   return (
     <input
@@ -737,7 +745,7 @@ function ScoreInput({ value, onChange, isWinner, hasError, disabled }: {
       className={cn(
         'w-full h-11 sm:h-10 rounded-lg border text-center font-display font-bold text-xl tabular-nums',
         'bg-muted/30 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-ring touch-manipulation',
-        isWinner && 'border-orange-500/50 text-orange-600 dark:text-orange-400 bg-orange-100/50 dark:bg-orange-900/30',
+        isWinner && cn(ui.border, ui.text, ui.bgLight),
         hasError && !isWinner && 'border-destructive/60 bg-destructive/5 text-destructive',
         !isWinner && !hasError && 'border-border text-foreground',
         disabled && 'cursor-not-allowed opacity-50',

@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
+import { sportUi } from '@/components/shared/SportBadge'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,13 @@ interface FormatOption {
   icon:        React.ReactNode
   label:       string
   tagline:     string          // one-line in the picker list
+  /** Plain-language structure, shown right under the label — e.g. "Men's
+   *  Teams · 3 singles + 2 doubles". Mainly for team cup formats, whose
+   *  label is a competition name (Thomas Cup, Corbillon Cup, …) that
+   *  doesn't tell you anything on its own unless you already know that
+   *  cup's rubber order. Keeps the picker skimmable without opening the
+   *  detail pane. */
+  structure?:  string
   description: string          // shown in the detail pane
   bullets:     string[]        // key facts shown in detail pane
   defaultName: string
@@ -113,6 +121,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     icon: <Shield className="h-4 w-4" />,
     label: 'Knockout (Corbillon Cup)',
     tagline: '4 singles + 1 doubles · 2 players/team',
+    structure: '2 players/team · 4 singles + 1 doubles',
     description: 'Team knockout using the Corbillon Cup rubber order. Each tie consists of 4 singles rubbers and 1 doubles rubber. First team to win 3 rubbers wins the tie.',
     bullets: ['Order: A×X, B×Y, Doubles A/B×X/Y, A×Y, B×X', '2 players per team (positions A and B)', 'Seeded bracket draw', 'Same scoring UI as Round Robin+KO'],
     defaultName: 'Teams - Knockout (Corbillon Cup)',
@@ -122,6 +131,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     icon: <Shield className="h-4 w-4" />,
     label: 'Knockout (Swaythling Cup)',
     tagline: '5 singles, no doubles · 3 players/team',
+    structure: '3 players/team · 5 singles, no doubles',
     description: 'Team knockout using the Swaythling Cup rubber order. Each tie consists of 5 singles rubbers and no doubles. First team to win 3 rubbers wins the tie.',
     bullets: ['Order: A×X, B×Y, C×Z, A×Y, B×X', '3 players per team (positions A, B and C)', 'Seeded bracket draw', 'Same scoring UI as Round Robin+KO'],
     defaultName: 'Teams - Knockout (Swaythling Cup)',
@@ -131,6 +141,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     icon: <Shield className="h-4 w-4" />,
     label: 'Groups + Knockout (Corbillon Cup)',
     tagline: 'Groups stage then Corbillon KO',
+    structure: '2 players/team · 4 singles + 1 doubles',
     description: 'Teams are seeded into round-robin groups. Top teams from each group advance to a Corbillon Cup knockout bracket (4 singles + 1 doubles).',
     bullets: ['Group stage + Corbillon KO bracket', '2 players per team', 'Configurable group size & advance count', 'Full group standings + KO draw'],
     defaultName: 'Teams - Groups + Knockout (Corbillon Cup)',
@@ -140,6 +151,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     icon: <Shield className="h-4 w-4" />,
     label: 'Groups + Knockout (Swaythling Cup)',
     tagline: 'Groups stage then Swaythling KO',
+    structure: '3 players/team · 5 singles, no doubles',
     description: 'Teams are seeded into round-robin groups. Top teams from each group advance to a Swaythling Cup knockout bracket (5 singles, no doubles).',
     bullets: ['Group stage + Swaythling KO bracket', '3 players per team', 'Configurable group size & advance count', 'Full group standings + KO draw'],
     defaultName: 'Teams - Groups + Knockout (Swaythling Cup)',
@@ -149,6 +161,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     icon: <Shield className="h-4 w-4" />,
     label: 'Thomas Cup (Men\'s Teams)',
     tagline: '3 singles + 2 doubles · knockout tie',
+    structure: 'Men\'s teams · 3 singles + 2 doubles',
     description: 'Men\'s team knockout using the Thomas Cup rubber order. Each tie is 5 rubbers — 3 singles and 2 doubles. First team to win 3 rubbers wins the tie.',
     bullets: ['Order: MS1, MD1, MS2, MD2, MS3', 'BWF-style seeded bracket draw', 'Best of 3 games, race to 21', 'Same scoring UI as other team formats'],
     defaultName: 'Teams - Thomas Cup',
@@ -158,6 +171,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     icon: <Shield className="h-4 w-4" />,
     label: 'Uber Cup (Women\'s Teams)',
     tagline: '3 singles + 2 doubles · knockout tie',
+    structure: 'Women\'s teams · 3 singles + 2 doubles',
     description: 'Women\'s team knockout using the Uber Cup rubber order. Each tie is 5 rubbers — 3 singles and 2 doubles. First team to win 3 rubbers wins the tie.',
     bullets: ['Order: WS1, WD1, WS2, WD2, WS3', 'BWF-style seeded bracket draw', 'Best of 3 games, race to 21', 'Same scoring UI as other team formats'],
     defaultName: 'Teams - Uber Cup',
@@ -167,26 +181,20 @@ const FORMAT_OPTIONS: FormatOption[] = [
     icon: <Shield className="h-4 w-4" />,
     label: 'Sudirman Cup (Mixed Teams)',
     tagline: '5 mixed rubbers · knockout tie',
+    structure: 'Mixed teams · 1 of each: MD, WS, MS, WD, XD',
     description: 'Mixed team knockout using the Sudirman Cup rubber order. Each tie is 5 rubbers covering all five disciplines. First team to win 3 rubbers wins the tie.',
     bullets: ['Order: MD, WS, MS, WD, XD', 'One tie per round — every discipline played', 'Best of 3 games, race to 21', 'Same scoring UI as other team formats'],
     defaultName: 'Teams - Sudirman Cup',
   },
 ]
 
-const ACCENT: Record<FormatType, { border: string; bg: string; text: string; ring: string; pill: string }> = {
-  single_knockout:        { border: 'border-red-400',    bg: 'bg-red-50 dark:bg-red-950/30',      text: 'text-red-600 dark:text-red-400',    ring: 'ring-red-400',    pill: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' },
-  pure_round_robin:       { border: 'border-sky-400',    bg: 'bg-sky-50 dark:bg-sky-950/30',      text: 'text-sky-600 dark:text-sky-400',    ring: 'ring-sky-400',    pill: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300' },
-  double_elimination:     { border: 'border-violet-400', bg: 'bg-violet-50 dark:bg-violet-950/30', text: 'text-violet-600 dark:text-violet-400', ring: 'ring-violet-400', pill: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
-  single_round_robin:     { border: 'border-teal-400',   bg: 'bg-teal-50 dark:bg-teal-950/30',    text: 'text-teal-600 dark:text-teal-400',   ring: 'ring-teal-400',   pill: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300' },
-  multi_rr_to_knockout:   { border: 'border-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/30', text: 'text-indigo-600 dark:text-indigo-400', ring: 'ring-indigo-400', pill: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' },
-  team_league_ko:         { border: 'border-amber-400',  bg: 'bg-amber-50 dark:bg-amber-950/30',  text: 'text-amber-600 dark:text-amber-400',  ring: 'ring-amber-400',  pill: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
-  team_league_swaythling: { border: 'border-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/30', text: 'text-orange-600 dark:text-orange-400', ring: 'ring-orange-400', pill: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' },
-  team_group_corbillon:   { border: 'border-rose-400',   bg: 'bg-rose-50 dark:bg-rose-950/30',    text: 'text-rose-600 dark:text-rose-400',   ring: 'ring-rose-400',   pill: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' },
-  team_group_swaythling:  { border: 'border-pink-400',   bg: 'bg-pink-50 dark:bg-pink-950/30',    text: 'text-pink-600 dark:text-pink-400',   ring: 'ring-pink-400',   pill: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300' },
-  team_thomas:            { border: 'border-blue-400',   bg: 'bg-blue-50 dark:bg-blue-950/30',    text: 'text-blue-600 dark:text-blue-400',   ring: 'ring-blue-400',   pill: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
-  team_uber:              { border: 'border-fuchsia-400', bg: 'bg-fuchsia-50 dark:bg-fuchsia-950/30', text: 'text-fuchsia-600 dark:text-fuchsia-400', ring: 'ring-fuchsia-400', pill: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-300' },
-  team_sudirman:          { border: 'border-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30', text: 'text-emerald-600 dark:text-emerald-400', ring: 'ring-emerald-400', pill: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
-}
+// Accent color is driven by SPORT (orange for table tennis, sky for
+// badminton — see SportBadge.tsx), not by format. With 12 formats across
+// 2 sports, giving each format its own hue competed with the sport color
+// for attention and made "which sport am I in" harder to answer at a
+// glance. Formats are still visually distinguished within a sport by
+// their icon (Swords, Shield, GitBranch, …) and label — a lighter touch
+// that doesn't fight the sport's identity color.
 
 // ─── Main form ────────────────────────────────────────────────────────────────
 
@@ -247,7 +255,8 @@ export function NewEventForm({ cid, createAction }: Props) {
   }
 
   const selected    = FORMAT_OPTIONS.find(o => o.value === formatType)!
-  const accent      = ACCENT[formatType]
+  const accent      = sportUi(sport)
+  const pillClass   = cn(accent.bgLight, accent.text)
   const singlesOpts = FORMAT_OPTIONS.filter(o => o.category === 'singles' && o.sports.includes(sport))
   const teamsOpts   = FORMAT_OPTIONS.filter(o => o.category === 'teams' && o.sports.includes(sport))
   const listOpts    = activeTab === 'singles' ? singlesOpts : teamsOpts
@@ -261,20 +270,23 @@ export function NewEventForm({ cid, createAction }: Props) {
 
       {/* ── Sport selector ─────────────────────────────────────────────── */}
       <div className="mb-4 flex items-center gap-2">
-        {(['table_tennis', 'badminton'] as SportType[]).map(s => (
-          <button key={s} type="button"
-            onClick={() => handleSelectSport(s)}
-            className={cn(
-              'flex-1 sm:flex-none px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all flex items-center justify-center gap-2',
-              sport === s
-                ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400'
-                : 'border-border bg-card text-muted-foreground hover:border-orange-300 hover:text-foreground',
-            )}
-          >
-            <span className="text-base">{s === 'badminton' ? '🏸' : '🏓'}</span>
-            {s === 'badminton' ? 'Badminton' : 'Table Tennis'}
-          </button>
-        ))}
+        {(['table_tennis', 'badminton'] as SportType[]).map(s => {
+          const sUi = sportUi(s)
+          return (
+            <button key={s} type="button"
+              onClick={() => handleSelectSport(s)}
+              className={cn(
+                'flex-1 sm:flex-none px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all flex items-center justify-center gap-2',
+                sport === s
+                  ? `${sUi.border} ${sUi.bgLight} ${sUi.text}`
+                  : `border-border bg-card text-muted-foreground ${sUi.hoverBorder} hover:text-foreground`,
+              )}
+            >
+              <span className="text-base">{s === 'badminton' ? '🏸' : '🏓'}</span>
+              {s === 'badminton' ? 'Badminton' : 'Table Tennis'}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── Two-column master–detail layout ─────────────────────────────── */}
@@ -297,10 +309,10 @@ export function NewEventForm({ cid, createAction }: Props) {
                   }
                 }}
                 className={cn(
-                  'flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors',
+                  'flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 -mb-px',
                   activeTab === cat
-                    ? 'bg-card text-foreground border-b-2 border-orange-500 -mb-px'
-                    : 'text-muted-foreground hover:text-foreground bg-muted/30',
+                    ? `bg-card text-foreground ${accent.border}`
+                    : 'text-muted-foreground hover:text-foreground bg-muted/30 border-transparent',
                 )}
               >
                 {cat === 'singles' ? '👤 Singles' : '🛡️ Teams'}
@@ -312,32 +324,36 @@ export function NewEventForm({ cid, createAction }: Props) {
           <div className="flex flex-col py-1 overflow-y-auto">
             {listOpts.map(opt => {
               const isSelected = formatType === opt.value
-              const a = ACCENT[opt.value]
               return (
                 <button key={opt.value} type="button"
                   onClick={() => handleSelectFormat(opt.value)}
                   className={cn(
                     'flex items-start gap-3 px-4 py-3 text-left transition-all border-l-2',
                     isSelected
-                      ? `${a.bg} ${a.border} ${a.text}`
+                      ? `${accent.bgLight} ${accent.border} ${accent.text}`
                       : 'border-transparent hover:bg-muted/40 text-foreground',
                   )}
                 >
-                  <span className={cn('mt-0.5 shrink-0', isSelected ? a.text : 'text-muted-foreground')}>
+                  <span className={cn('mt-0.5 shrink-0', isSelected ? accent.text : 'text-muted-foreground')}>
                     {opt.icon}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={cn('text-sm font-semibold leading-tight', isSelected ? a.text : '')}>{opt.label}</span>
+                      <span className={cn('text-sm font-semibold leading-tight', isSelected ? accent.text : '')}>{opt.label}</span>
                       {opt.badge && (
                         <span className={cn('text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide shrink-0',
-                          isSelected ? a.pill : 'bg-muted text-muted-foreground'
+                          isSelected ? pillClass : 'bg-muted text-muted-foreground'
                         )}>{opt.badge}</span>
                       )}
                     </div>
+                    {/* Plain-language structure (team cup names alone don't tell you the
+                        rubber order) — shown above the more marketing-y tagline. */}
+                    {opt.structure && (
+                      <p className="text-[11px] font-medium text-foreground/70 mt-0.5 leading-snug">{opt.structure}</p>
+                    )}
                     <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{opt.tagline}</p>
                   </div>
-                  {isSelected && <CheckCircle2 className={cn('h-4 w-4 shrink-0 mt-0.5', a.text)} />}
+                  {isSelected && <CheckCircle2 className={cn('h-4 w-4 shrink-0 mt-0.5', accent.text)} />}
                 </button>
               )
             })}
@@ -348,7 +364,7 @@ export function NewEventForm({ cid, createAction }: Props) {
         <div className="flex-1 flex flex-col min-w-0">
 
           {/* Format detail header */}
-          <div className={cn('px-6 py-5 border-b border-border', accent.bg)}>
+          <div className={cn('px-6 py-5 border-b border-border', accent.bgLight)}>
             <div className="flex items-start gap-3">
               <span className={cn('mt-0.5 p-2 rounded-lg bg-white/60 dark:bg-black/20 shrink-0', accent.text)}>
                 {selected.icon}
@@ -357,11 +373,14 @@ export function NewEventForm({ cid, createAction }: Props) {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-base text-foreground leading-tight">{selected.label}</h3>
                   {selected.badge && (
-                    <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide', accent.pill)}>
+                    <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide', pillClass)}>
                       {selected.badge}
                     </span>
                   )}
                 </div>
+                {selected.structure && (
+                  <p className="text-xs font-semibold text-foreground/70 mt-1">{selected.structure}</p>
+                )}
                 <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{selected.description}</p>
               </div>
             </div>
@@ -396,8 +415,8 @@ export function NewEventForm({ cid, createAction }: Props) {
                 required
                 className={cn(
                   'flex h-10 w-full rounded-lg border-2 bg-background px-3 py-2 text-sm text-foreground',
-                  'focus:outline-none focus:ring-2 transition-all duration-150',
-                  accent.border, `focus:ring-2 ${accent.ring}/40`,
+                  'focus:outline-none transition-all duration-150',
+                  accent.border, accent.focusRing,
                 )}
               />
             </div>
@@ -423,7 +442,7 @@ export function NewEventForm({ cid, createAction }: Props) {
             <Button type="button" variant="outline" asChild>
               <Link href={`/admin/championships/${cid}`}>Cancel</Link>
             </Button>
-            <Button type="submit" className={cn('flex-1 gap-2 max-w-xs', !name.trim() || busy ? '' : `${accent.bg} ${accent.border} ${accent.text} border`)}
+            <Button type="submit" className={cn('flex-1 gap-2 max-w-xs', !name.trim() || busy ? '' : `${accent.bgLight} ${accent.border} ${accent.text} border`)}
               disabled={!name.trim() || busy}
               variant="default"
             >
