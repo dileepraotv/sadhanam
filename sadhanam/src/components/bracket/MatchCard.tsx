@@ -168,7 +168,7 @@ function PlayerRow({
         <WinnerTrophy show={isWinner} size="md" />
         {player?.seed && <span className="seed-badge shrink-0">{player.seed}</span>}
         <span className={cn(
-          'truncate leading-tight',
+          'flex-1 min-w-0 truncate leading-tight',
           compact ? 'text-xs' : 'text-sm',
           isEmpty   ? 'text-muted-foreground/50 italic text-sm' : '',
           isWinner  ? WINNER_NAME_CLS : '',

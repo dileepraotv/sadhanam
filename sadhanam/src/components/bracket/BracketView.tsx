@@ -380,7 +380,7 @@ function DrawPlayerRow({ player, games, isWinner, isLoser, showScore, matchIsBye
 
         {/* Name */}
         <span className={cn(
-          'text-[13px] sm:text-[15px] overflow-hidden text-ellipsis whitespace-nowrap leading-tight',
+          'flex-1 min-w-0 text-[13px] sm:text-[15px] overflow-hidden text-ellipsis whitespace-nowrap leading-tight',
           isTbd          && 'text-muted-foreground/60 italic',
           isWinner       && 'font-bold text-foreground',
           isLoser        && 'text-muted-foreground',
