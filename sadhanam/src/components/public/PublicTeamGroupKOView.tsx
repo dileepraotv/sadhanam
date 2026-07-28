@@ -223,7 +223,7 @@ export function PublicTeamGroupKOView({ tournament }: { tournament: Tournament }
               return (
                 <div key={group.id} className={cn(
                   'rounded-xl border overflow-hidden',
-                  allDone ? 'border-border/40 bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40' : 'border-border bg-card',
+                  allDone ? 'border-border/40 bg-orange-50/50 dark:bg-orange-950/10' : 'border-border bg-card',
                 )}>
                   {/* Group header — always visible */}
                   <div className="px-4 pt-3 pb-0">
@@ -413,12 +413,12 @@ function PublicFixtureRow({ match }: { match: TeamMatchRow }) {
   const done       = match.submatches.filter(s => s.scoring?.status === 'complete').length
   const total      = match.submatches.length
 
-  const WINNER_ROW = 'border border-blue-900/35 bg-blue-950/5 dark:bg-blue-900/10 dark:border-blue-700/40 rounded'
+  const WINNER_ROW = 'border border-orange-300/60 bg-orange-500/5 dark:border-orange-700/40 dark:bg-orange-400/10 rounded'
 
   return (
     <div className={cn('rounded-lg border overflow-hidden',
       isLive     ? 'border-orange-400/70 bg-orange-50/50 dark:bg-orange-950/15' :
-      isComplete ? 'border-border/40 bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40' :
+      isComplete ? 'border-border/40 bg-orange-50/50 dark:bg-orange-950/10' :
                    'border-border bg-card',
     )}>
       <button
@@ -525,12 +525,12 @@ function PublicKOCard({ match }: { match: TeamMatchRow }) {
   const bWon       = isComplete && match.winner_team_id === match.team_b_id
   const done       = match.submatches.filter(s => s.scoring?.status === 'complete').length
 
-  const WINNER_ROW = 'border border-blue-900/35 bg-blue-950/5 dark:bg-blue-900/10 dark:border-blue-700/40 rounded'
+  const WINNER_ROW = 'border border-orange-300/60 bg-orange-500/5 dark:border-orange-700/40 dark:bg-orange-400/10 rounded'
 
   return (
     <div className={cn('rounded-xl border overflow-hidden',
       isLive     ? 'border-orange-400/70 bg-orange-50/50 dark:bg-orange-950/15 shadow-sm' :
-      isComplete ? 'border-border/40 bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40' :
+      isComplete ? 'border-border/40 bg-orange-50/50 dark:bg-orange-950/10' :
                    'border-border bg-card',
     )}>
       <button

@@ -12,7 +12,7 @@
  */
 
 import { cn } from '@/lib/utils'
-import type { Match, Game } from '@/lib/types'
+import type { Match, Game, SportType } from '@/lib/types'
 import {
   WinnerTrophy,
   MatchStatusBadge,
@@ -20,25 +20,28 @@ import {
   WINNER_SCORE_CLS,
   LOSER_NAME_CLS,
   LOSER_SCORE_CLS,
-  WINNER_ROW_CLS,
-  GAME_CHIP_WIN_CLS,
+  winnerRowCls,
+  gameChipWinCls,
   GAME_CHIP_LOSS_CLS,
 } from '@/components/shared/MatchUI'
+import { sportUi } from '@/components/shared/SportBadge'
 
 interface MatchCardProps {
-  match:    Match
-  compact?: boolean
-  onClick?: () => void
-  isAdmin?: boolean
-  href?:    string
+  match:      Match
+  compact?:   boolean
+  onClick?:   () => void
+  isAdmin?:   boolean
+  href?:      string
+  sportType?: SportType | null
 }
 
-export function MatchCard({ match, compact = false, onClick, isAdmin, href }: MatchCardProps) {
+export function MatchCard({ match, compact = false, onClick, isAdmin, href, sportType }: MatchCardProps) {
   const { player1, player2, player1_games, player2_games, status, winner_id, games } = match
 
   const isLive     = status === 'live'
   const isComplete = status === 'complete'
   const isBye      = status === 'bye'
+  const ui         = sportUi(sportType)
 
   const p1IsWinner = isComplete && winner_id === match.player1_id
   const p2IsWinner = isComplete && winner_id === match.player2_id
@@ -59,7 +62,7 @@ export function MatchCard({ match, compact = false, onClick, isAdmin, href }: Ma
       className={cn(
         'match-card w-full text-left block rounded-xl border overflow-hidden transition-all',
         isLive     ? 'border-orange-400/70 bg-orange-50/30 dark:bg-orange-950/10 shadow-sm' :
-        isComplete ? 'border-border/40 bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40' :
+        isComplete ? cn('border-border/40', ui.bgFaint) :
         isBye      ? 'border-border/20 bg-muted/10' :
                      'border-border bg-card',
         (onClick || href) && 'cursor-pointer hover:border-orange-400/50 hover:shadow-sm',
@@ -84,6 +87,7 @@ export function MatchCard({ match, compact = false, onClick, isAdmin, href }: Ma
           isLoser={p2IsWinner}
           showScore={isLive || isComplete}
           compact={compact}
+          winnerRowCls={winnerRowCls(sportType)}
         />
 
         <div className={cn(
@@ -98,6 +102,7 @@ export function MatchCard({ match, compact = false, onClick, isAdmin, href }: Ma
           isLoser={p1IsWinner}
           showScore={isLive || isComplete}
           compact={compact}
+          winnerRowCls={winnerRowCls(sportType)}
         />
       </div>
 
@@ -109,7 +114,7 @@ export function MatchCard({ match, compact = false, onClick, isAdmin, href }: Ma
             return (
               <span key={g.id ?? i} className={cn(
                 'text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded-md border',
-                p1Won ? GAME_CHIP_WIN_CLS : GAME_CHIP_LOSS_CLS,
+                p1Won ? gameChipWinCls(sportType) : GAME_CHIP_LOSS_CLS,
               )}>
                 {g.score1}–{g.score2}
               </span>
@@ -146,7 +151,7 @@ export function MatchCard({ match, compact = false, onClick, isAdmin, href }: Ma
 // ── PlayerRow ──────────────────────────────────────────────────────────────────
 
 function PlayerRow({
-  player, gamesWon, isWinner, isLoser, showScore, compact,
+  player, gamesWon, isWinner, isLoser, showScore, compact, winnerRowCls,
 }: {
   player?:   Match['player1'] | null
   gamesWon:  number
@@ -154,6 +159,7 @@ function PlayerRow({
   isLoser:   boolean
   showScore: boolean
   compact:   boolean
+  winnerRowCls: string
 }) {
   const name    = player?.name ?? 'TBD'
   const isEmpty = !player?.name
@@ -162,7 +168,7 @@ function PlayerRow({
     <div className={cn(
       'flex items-center gap-2 px-1',
       compact ? 'py-1' : 'py-1.5',
-      isWinner && WINNER_ROW_CLS,
+      isWinner && winnerRowCls,
     )}>
       <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
         <WinnerTrophy show={isWinner} size="md" />

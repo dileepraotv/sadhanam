@@ -440,6 +440,7 @@ function RoundList({ round, isAdmin, sport, matchBasePath, onMatchClick, expande
             <MatchCard
               match={m}
               isAdmin={isAdmin}
+              sportType={sport}
               // no href — scoring is inline
             />
             {/* Score / Edit button overlaid at bottom of card */}
@@ -475,6 +476,7 @@ function RoundList({ round, isAdmin, sport, matchBasePath, onMatchClick, expande
         key={m.id}
         match={m}
         isAdmin={isAdmin}
+        sportType={sport}
         onClick={onMatchClick && !isBye ? () => onMatchClick(m) : undefined}
         href={isAdmin ? `${base}/${m.id}` : undefined}
       />

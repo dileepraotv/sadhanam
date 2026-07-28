@@ -25,6 +25,8 @@
 import { Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LiveBadge } from '@/components/shared/LiveBadge'
+import { sportUi } from '@/components/shared/SportBadge'
+import type { SportType } from '@/lib/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Canonical color tokens
@@ -38,11 +40,25 @@ export const WINNER_SCORE_CLS = 'font-bold tabular-nums text-foreground'
 export const LOSER_NAME_CLS   = 'font-normal text-muted-foreground'
 /** Loser sets-won — muted. */
 export const LOSER_SCORE_CLS  = 'tabular-nums text-muted-foreground/50'
-/** Winner row pill — dark navy border + subtle tint. Apply to winner's row wrapper. */
-export const WINNER_ROW_CLS   = 'rounded-md border border-blue-900/35 bg-blue-950/5 dark:bg-blue-900/10 dark:border-blue-700/40'
-/** Game chip — won that game. Orange accent. */
+/**
+ * Winner row pill — sport-tinted border + subtle wash. Apply to winner's row wrapper.
+ * Kept as a fixed constant (table tennis orange) for legacy callers that don't yet
+ * pass a sport; prefer `winnerRowCls(sportType)` for sport-aware screens.
+ */
+export const WINNER_ROW_CLS   = 'rounded-md border border-orange-300/60 bg-orange-500/5 dark:border-orange-700/40 dark:bg-orange-400/10'
+/** Sport-aware winner row pill — matches the app's orange/sky-blue theme. */
+export function winnerRowCls(sportType?: SportType | null): string {
+  const ui = sportUi(sportType)
+  return cn('rounded-md border', ui.borderLight, ui.bgSoft)
+}
+/** Game chip — won that game. Orange accent (legacy constant; prefer `gameChipWinCls`). */
 export const GAME_CHIP_WIN_CLS =
   'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800/40'
+/** Sport-aware game chip — won that game. */
+export function gameChipWinCls(sportType?: SportType | null): string {
+  const ui = sportUi(sportType)
+  return cn(ui.text, ui.bgLight, ui.borderLight)
+}
 /** Game chip — lost that game. Muted. */
 export const GAME_CHIP_LOSS_CLS = 'text-muted-foreground bg-muted/60 border-border/40'
 
@@ -81,9 +97,11 @@ type MatchStatus = 'pending' | 'live' | 'complete' | 'bye' | string
 export function matchStatusClasses(
   status: MatchStatus,
   variant: 'card' | 'subtle' = 'card',
+  sportType?: SportType | null,
 ): string {
   const isComplete = status === 'complete' || status === 'bye'
   const isLive     = status === 'live'
+  const ui         = sportUi(sportType)
 
   if (variant === 'subtle') {
     if (isLive)     return 'bg-orange-50/60 dark:bg-orange-950/20'
@@ -93,7 +111,7 @@ export function matchStatusClasses(
 
   // 'card' variant
   if (isLive)     return 'border-orange-400/70 bg-orange-50/50 dark:bg-orange-950/15 shadow-sm shadow-orange-200/40 dark:shadow-orange-900/20'
-  if (isComplete) return 'border-border/40 bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40'
+  if (isComplete) return cn('border-border/40', ui.bgFaint)
   return 'border-border bg-card'
 }
 

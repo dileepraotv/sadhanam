@@ -15,6 +15,7 @@ import { AlertTriangle } from 'lucide-react'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
 import { SPORT_RULES, FORMAT_CONFIGS } from '@/lib/scoring/types'
 import { MatchCard } from '@/components/bracket/MatchCard'
+import { sportUi } from '@/components/shared/SportBadge'
 import { cn } from '@/lib/utils'
 import { toast } from '@/components/ui/toaster'
 import type { Match, SportType } from '@/lib/types'
@@ -308,12 +309,13 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
   const p2Won      = isComplete && m.winner_id === m.player2_id
   const games      = m.games ? [...m.games].sort((a, b) => a.game_number - b.game_number) : []
   const isDeclared = isComplete && games.length === 0
+  const ui         = sportUi(sport)
 
   return (
     <div className={cn(
       'rounded-xl border overflow-hidden transition-all',
       isLive     ? 'border-orange-400/70 bg-orange-50/30 dark:bg-orange-950/10 shadow-sm' :
-      isComplete ? 'border-border/40 bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40' :
+      isComplete ? cn('border-border/30', ui.bgFaint) :
       isBye      ? 'border-border/20 bg-muted/5' :
                    'border-border bg-card',
     )}>
@@ -321,7 +323,7 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
         {/* Player 1 row */}
         <div className={cn(
           'flex items-center gap-2 py-1 px-1 rounded',
-          p1Won && 'border border-blue-900/35 bg-blue-950/5 dark:bg-blue-900/10 dark:border-blue-700/40',
+          p1Won && cn(ui.borderLight, ui.bgSoft, 'border'),
         )}>
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <WinnerTrophyInline show={p1Won} />
@@ -360,7 +362,7 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
         {/* Player 2 row */}
         <div className={cn(
           'flex items-center gap-2 py-1 px-1 rounded',
-          p2Won && 'border border-blue-900/35 bg-blue-950/5 dark:bg-blue-900/10 dark:border-blue-700/40',
+          p2Won && cn(ui.borderLight, ui.bgSoft, 'border'),
         )}>
           <div className="flex items-center gap-1.5 flex-1 min-w-0">
             <WinnerTrophyInline show={p2Won} />
@@ -392,7 +394,7 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
               <span key={i} className={cn(
                 'text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded-md border',
                 p1WonGame
-                  ? 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800/40'
+                  ? cn(ui.text, ui.bgLight, ui.borderLight)
                   : 'text-muted-foreground bg-muted/60 border-border/40',
               )}>
                 {g.score1}–{g.score2}

@@ -22,6 +22,7 @@
 import { useMemo, useState } from 'react'
 import { Trophy, Users, ChevronRight, Swords } from 'lucide-react'
 import { WinnerTrophy, matchStatusClasses } from '@/components/shared/MatchUI'
+import { sportUi, type SportUiClasses } from '@/components/shared/SportBadge'
 import { cn }                     from '@/lib/utils'
 import type { Tournament, Match, Player, Stage, RRStageConfig } from '@/lib/types'
 import type { RRGroup, GroupStandings } from '@/lib/roundrobin/types'
@@ -133,6 +134,7 @@ export function PublicMultiStageClient({
           allowBestThird={allowBestThird}
           bestThirdCount={bestThirdCount}
           stage1Complete={stage1Complete ?? false}
+          ui={sportUi(tournament.sport_type)}
         />
       )}
 
@@ -158,6 +160,7 @@ function PublicGroupsView({
   allowBestThird,
   bestThirdCount,
   stage1Complete,
+  ui,
 }: {
   standings:      GroupStandings[]
   allMatches:     Match[]
@@ -165,6 +168,7 @@ function PublicGroupsView({
   allowBestThird: boolean
   bestThirdCount: number
   stage1Complete: boolean
+  ui:             SportUiClasses
 }) {
   const [activeGroup, setActiveGroup] = useState(0)
 
@@ -367,7 +371,7 @@ function PublicGroupsView({
                   <div className="flex flex-col gap-1.5">
                     {groupMatches
                       .filter(m => m.round === day)
-                      .map(m => <PublicFixtureRow key={m.id} match={m} />)
+                      .map(m => <PublicFixtureRow key={m.id} match={m} ui={ui} />)
                     }
                   </div>
                 </div>
@@ -382,7 +386,7 @@ function PublicGroupsView({
 
 // ── Fixture row (public, no links) ─────────────────────────────────────────────
 
-function PublicFixtureRow({ match: m }: { match: Match }) {
+function PublicFixtureRow({ match: m, ui }: { match: Match; ui: SportUiClasses }) {
   const isComplete = m.status === 'complete'
   const isLive     = m.status === 'live'
   const p1Won      = isComplete && m.winner_id === m.player1_id
@@ -396,7 +400,7 @@ function PublicFixtureRow({ match: m }: { match: Match }) {
   return (
     <div className={cn(
       'rounded-lg border text-sm',
-      isComplete && 'bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40 border-border/40',
+      isComplete && cn(ui.bgFaint, 'border-border/40'),
       isLive     && 'border-orange-400/70 bg-orange-50/50 dark:bg-orange-950/15 shadow-sm',
       !isComplete && !isLive && 'bg-card border-border',
     )}>
@@ -404,7 +408,7 @@ function PublicFixtureRow({ match: m }: { match: Match }) {
         {/* Player 1 row */}
         <div className={cn(
           'flex items-center gap-2 py-1 px-1 rounded',
-          p1Won && 'border border-blue-900/35 bg-blue-950/5 dark:bg-blue-900/10',
+          p1Won && cn(ui.borderLight, ui.bgSoft, 'border'),
         )}>
           <WinnerTrophy show={p1Won} size="sm" />
           <span className={cn(
@@ -425,7 +429,7 @@ function PublicFixtureRow({ match: m }: { match: Match }) {
         {/* Player 2 row */}
         <div className={cn(
           'flex items-center gap-2 py-1 px-1 rounded',
-          p2Won && 'border border-blue-900/35 bg-blue-950/5 dark:bg-blue-900/10',
+          p2Won && cn(ui.borderLight, ui.bgSoft, 'border'),
         )}>
           <WinnerTrophy show={p2Won} size="sm" />
           <span className={cn(
@@ -450,7 +454,7 @@ function PublicFixtureRow({ match: m }: { match: Match }) {
               <span key={g.id ?? i} className={cn(
                 'text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border tabular-nums',
                 p1WonGame
-                  ? 'bg-orange-100 border-orange-200/80 text-orange-700 dark:bg-orange-950/40 dark:border-orange-800 dark:text-orange-400'
+                  ? cn(ui.bgLight, ui.borderLight, ui.text)
                   : 'bg-muted/40 border-border/30 text-muted-foreground',
               )}>
                 {g.score1}–{g.score2}

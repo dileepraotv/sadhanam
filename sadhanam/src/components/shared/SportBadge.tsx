@@ -100,6 +100,7 @@ export interface SportUiClasses {
   ring:           string   // ring-*-400 — plain highlight ring
   ringSoft:       string   // ring-*-400/20 — a very light ring tint (decider highlight)
   bgSoft:         string   // bg-*-200/60 dark:bg-*-900/40 — softer fill than bgLight
+  bgFaint:        string   // bg-*-50/50 dark:bg-*-950/10 — barely-there wash for "done/receded" rows
   focusRing:      string   // focus:ring-2 focus:ring-*-400/40 — input focus ring
 }
 
@@ -116,6 +117,7 @@ export const SPORT_UI: Record<SportType, SportUiClasses> = {
     ring:         'ring-orange-400',
     ringSoft:     'ring-orange-400/20',
     bgSoft:       'bg-orange-200/60 dark:bg-orange-900/40',
+    bgFaint:      'bg-orange-50/50 dark:bg-orange-950/10',
     focusRing:    'focus:ring-2 focus:ring-orange-400/40',
   },
   badminton: {
@@ -130,6 +132,7 @@ export const SPORT_UI: Record<SportType, SportUiClasses> = {
     ring:         'ring-sky-400',
     ringSoft:     'ring-sky-400/20',
     bgSoft:       'bg-sky-200/60 dark:bg-sky-900/40',
+    bgFaint:      'bg-sky-50/50 dark:bg-sky-950/10',
     focusRing:    'focus:ring-2 focus:ring-sky-400/40',
   },
 }

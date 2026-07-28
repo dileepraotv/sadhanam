@@ -12,7 +12,7 @@
  */
 
 import { cn }         from '@/lib/utils'
-import type { Match, Game } from '@/lib/types'
+import type { Match, Game, SportType } from '@/lib/types'
 import {
   WinnerTrophy,
   MatchStatusBadge,
@@ -20,23 +20,26 @@ import {
   WINNER_SCORE_CLS,
   LOSER_NAME_CLS,
   LOSER_SCORE_CLS,
-  WINNER_ROW_CLS,
-  GAME_CHIP_WIN_CLS,
+  winnerRowCls,
+  gameChipWinCls,
   GAME_CHIP_LOSS_CLS,
 } from '@/components/shared/MatchUI'
+import { sportUi } from '@/components/shared/SportBadge'
 
 interface Props {
   match:         Match
   onMatchClick?: (match: Match) => void
   compact?:      boolean
   groupName?:    string | null
+  sportType?:    SportType | null
 }
 
-export function PublicMatchCard({ match, onMatchClick, compact = false, groupName }: Props) {
+export function PublicMatchCard({ match, onMatchClick, compact = false, groupName, sportType }: Props) {
   const isLive     = match.status === 'live'
   const isComplete = match.status === 'complete'
   const isBye      = match.status === 'bye'
   const isClickable = isLive && !!onMatchClick  // only live opens detail
+  const ui = sportUi(sportType)
 
   const p1Won = isComplete && match.winner_id === match.player1_id
   const p2Won = isComplete && match.winner_id === match.player2_id
@@ -59,7 +62,7 @@ export function PublicMatchCard({ match, onMatchClick, compact = false, groupNam
       className={cn(
         'relative rounded-xl border transition-all duration-150 overflow-hidden select-none',
         isLive     && 'border-orange-400/70 bg-orange-50/30 dark:bg-orange-950/10 shadow-sm shadow-orange-200/40',
-        isComplete && 'border-border/40 bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40',
+        isComplete && cn('border-border/40', ui.bgFaint),
         match.status === 'pending' && 'border-border bg-card',
         isBye      && 'border-border/20 bg-muted/10',
         isClickable && 'cursor-pointer hover:border-orange-400 hover:shadow-md active:scale-[0.99]',
@@ -85,6 +88,7 @@ export function PublicMatchCard({ match, onMatchClick, compact = false, groupNam
           isWinner={p1Won} isLoser={p2Won}
           showScore={isLive || isComplete}
           compact={compact}
+          winnerRowCls={winnerRowCls(sportType)}
         />
         <div className="border-b border-border/30 mx-1" />
         <PlayerRow
@@ -92,6 +96,7 @@ export function PublicMatchCard({ match, onMatchClick, compact = false, groupNam
           isWinner={p2Won} isLoser={p1Won}
           showScore={isLive || isComplete}
           compact={compact}
+          winnerRowCls={winnerRowCls(sportType)}
         />
       </div>
 
@@ -105,7 +110,7 @@ export function PublicMatchCard({ match, onMatchClick, compact = false, groupNam
                 key={g.id}
                 className={cn(
                   'text-[11px] font-mono font-semibold px-2 py-0.5 rounded-md border tabular-nums',
-                  p1Wins ? GAME_CHIP_WIN_CLS : GAME_CHIP_LOSS_CLS,
+                  p1Wins ? gameChipWinCls(sportType) : GAME_CHIP_LOSS_CLS,
                 )}
               >
                 {g.score1}–{g.score2}
@@ -144,7 +149,7 @@ export function PublicMatchCard({ match, onMatchClick, compact = false, groupNam
 // ── PlayerRow ──────────────────────────────────────────────────────────────────
 
 function PlayerRow({
-  player, gamesWon, isWinner, isLoser, showScore, compact,
+  player, gamesWon, isWinner, isLoser, showScore, compact, winnerRowCls,
 }: {
   player:    Match['player1'] | null
   gamesWon:  number
@@ -152,12 +157,13 @@ function PlayerRow({
   isLoser:   boolean
   showScore: boolean
   compact:   boolean
+  winnerRowCls: string
 }) {
   return (
     <div className={cn(
       'flex items-center justify-between gap-2 px-1',
       compact ? 'py-1' : 'py-1.5',
-      isWinner && WINNER_ROW_CLS,
+      isWinner && winnerRowCls,
     )}>
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
         <WinnerTrophy show={isWinner} size="md" />

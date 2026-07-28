@@ -155,7 +155,7 @@ export function PublicPureRRView({ tournament, matches: initialMatches, players 
             const ms = roundMap.find(([r]) => r === displayRound)?.[1] ?? []
             return (
               <div className="p-4 flex flex-col gap-3">
-                {ms.map(m => <PublicMatchCard key={m.id} match={m} />)}
+                {ms.map(m => <PublicMatchCard key={m.id} match={m} sportType={tournament.sport_type} />)}
               </div>
             )
           })()}

@@ -27,6 +27,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronRight, Trophy, Info } from 'lucide-react'
 import { WinnerTrophy, matchStatusClasses, MatchStatusBadge } from '@/components/shared/MatchUI'
+import { sportUi, type SportUiClasses } from '@/components/shared/SportBadge'
 import { cn }             from '@/lib/utils'
 import type { Match, Tournament, Stage, RRStageConfig } from '@/lib/types'
 import type { RRGroup, GroupStandings, PlayerStanding } from '@/lib/roundrobin/types'
@@ -59,6 +60,8 @@ export function PublicRRView({
       </div>
     )
   }
+
+  const ui = sportUi(tournament.sport_type)
 
   const currentGroup    = groups[activeGroup]
   const currentStandings = standings.find(s => s.group.id === currentGroup?.id)
@@ -141,6 +144,7 @@ export function PublicRRView({
                 round={round}
                 matches={matches}
                 onMatchClick={onMatchClick}
+                ui={ui}
               />
             ))}
           </div>
@@ -271,10 +275,11 @@ function StandingsTable({ standings, advanceCount }: {
 
 // ── MatchdayAccordion ──────────────────────────────────────────────────────────
 
-function MatchdayAccordion({ round, matches, onMatchClick }: {
+function MatchdayAccordion({ round, matches, onMatchClick, ui }: {
   round:        number
   matches:      Match[]
   onMatchClick: (m: Match) => void
+  ui:           SportUiClasses
 }) {
   const hasLive    = matches.some(m => m.status === 'live')
   const allDone    = matches.every(m => m.status === 'complete' || m.status === 'bye')
@@ -327,7 +332,7 @@ function MatchdayAccordion({ round, matches, onMatchClick }: {
           {matches
             .filter(m => m.status !== 'bye')
             .map(m => (
-              <FixtureRow key={m.id} match={m} onMatchClick={onMatchClick} />
+              <FixtureRow key={m.id} match={m} onMatchClick={onMatchClick} ui={ui} />
             ))
           }
         </div>
@@ -338,9 +343,10 @@ function MatchdayAccordion({ round, matches, onMatchClick }: {
 
 // ── FixtureRow ─────────────────────────────────────────────────────────────────
 
-function FixtureRow({ match, onMatchClick }: {
+function FixtureRow({ match, onMatchClick, ui }: {
   match:        Match
   onMatchClick: (m: Match) => void
+  ui:           SportUiClasses
 }) {
   const isLive     = match.status === 'live'
   const isComplete = match.status === 'complete'
@@ -365,7 +371,7 @@ function FixtureRow({ match, onMatchClick }: {
       className={cn(
         'flex flex-col px-3 py-2 border text-sm transition-colors',
         isLive && 'bg-orange-50/80 dark:bg-orange-950/20 border-l-2 border-l-orange-400 border-border/40',
-        isComplete && 'bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40 border-border/30',
+        isComplete && cn(ui.bgFaint, 'border-border/30'),
         !isComplete && !isLive && 'bg-card border-border/0',
         isClickable && 'cursor-pointer hover:bg-muted/10',
       )}
@@ -373,7 +379,7 @@ function FixtureRow({ match, onMatchClick }: {
       {/* Player 1 row */}
       <div className={cn(
         'flex items-center gap-2 py-1 px-1 rounded',
-        p1Won && 'border border-blue-900/35 bg-blue-950/5 dark:bg-blue-900/10',
+        p1Won && cn(ui.borderLight, ui.bgSoft, 'border'),
       )}>
         <WinnerTrophy show={p1Won} size="sm" />
         {p1?.seed != null && <span className="seed-badge text-[9px] shrink-0">{p1.seed}</span>}
@@ -396,7 +402,7 @@ function FixtureRow({ match, onMatchClick }: {
       {/* Player 2 row */}
       <div className={cn(
         'flex items-center gap-2 py-1 px-1 rounded',
-        p2Won && 'border border-blue-900/35 bg-blue-950/5 dark:bg-blue-900/10',
+        p2Won && cn(ui.borderLight, ui.bgSoft, 'border'),
       )}>
         <WinnerTrophy show={p2Won} size="sm" />
         {p2?.seed != null && <span className="seed-badge text-[9px] shrink-0">{p2.seed}</span>}
@@ -421,7 +427,7 @@ function FixtureRow({ match, onMatchClick }: {
               <span key={g.id} className={cn(
                 'text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border tabular-nums',
                 p1WonGame
-                  ? 'bg-orange-100 border-orange-200/80 text-orange-700 dark:bg-orange-950/40 dark:border-orange-800 dark:text-orange-400'
+                  ? cn(ui.bgLight, ui.borderLight, ui.text)
                   : 'bg-muted/40 border-border/30 text-muted-foreground',
               )}>
                 {g.score1}–{g.score2}

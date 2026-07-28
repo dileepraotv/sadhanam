@@ -11,16 +11,20 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { TeamMatch, TeamMatchSubmatch, Match } from '@/lib/types'
-import { MatchStatusBadge, WINNER_ROW_CLS } from '@/components/shared/MatchUI'
+import type { TeamMatch, TeamMatchSubmatch, Match, SportType } from '@/lib/types'
+import { MatchStatusBadge, winnerRowCls } from '@/components/shared/MatchUI'
+import { sportUi } from '@/components/shared/SportBadge'
 
 interface Props {
   teamMatch:       TeamMatch
   subMatchScores?: Map<string, Match>
+  sportType?:      SportType | null
 }
 
-export function TeamMatchCard({ teamMatch, subMatchScores }: Props) {
+export function TeamMatchCard({ teamMatch, subMatchScores, sportType }: Props) {
   const [expanded, setExpanded] = useState(teamMatch.status === 'live')
+  const ui = sportUi(sportType)
+  const rowWinCls = winnerRowCls(sportType)
 
   const teamA  = teamMatch.team_a
   const teamB  = teamMatch.team_b
@@ -40,7 +44,7 @@ export function TeamMatchCard({ teamMatch, subMatchScores }: Props) {
       className={cn(
         'rounded-xl border overflow-hidden transition-colors',
         isLive  ? 'border-orange-400 dark:border-orange-500 bg-orange-50/30 dark:bg-orange-950/10' :
-        isDone  ? 'border-border/40 bg-[#BEBEBE]/60 dark:bg-[#5a5a5a]/40' :
+        isDone  ? cn('border-border/40', ui.bgFaint) :
                   'border-border bg-card',
       )}
     >
@@ -52,7 +56,7 @@ export function TeamMatchCard({ teamMatch, subMatchScores }: Props) {
         {/* Team A row */}
         <div className={cn(
           'flex items-center gap-2 px-1 py-0.5 rounded',
-          aWon && WINNER_ROW_CLS,
+          aWon && rowWinCls,
         )}>
           {teamA?.color && (
             <span className="w-2.5 h-2.5 rounded-full shrink-0 ml-0.5" style={{ background: teamA.color }} />
@@ -85,7 +89,7 @@ export function TeamMatchCard({ teamMatch, subMatchScores }: Props) {
         {/* Team B row */}
         <div className={cn(
           'flex items-center gap-2 px-1 py-0.5 rounded',
-          bWon && WINNER_ROW_CLS,
+          bWon && rowWinCls,
         )}>
           {teamB?.color && (
             <span className="w-2.5 h-2.5 rounded-full shrink-0 ml-0.5" style={{ background: teamB.color }} />
