@@ -7,8 +7,9 @@
  */
 
 import { useTransition, useState }     from 'react'
-import { Shuffle, Info, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Shuffle, Info, CheckCircle2, ArrowRight, ArrowLeftRight } from 'lucide-react'
 import type { Tournament, Player, Match } from '@/lib/types'
+import type { GroupStandings } from '@/lib/roundrobin/types'
 import { Button }                      from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/index'
 import { BracketView }                 from '@/components/bracket/BracketView'
@@ -17,6 +18,7 @@ import { resetSingleKOBracket }        from '@/lib/actions/stages'
 import { generateKnockoutStage }       from '@/lib/actions/knockout'
 import { toast }                       from '@/components/ui/toaster'
 import { ResetStageDialog }            from './ResetStageDialog'
+import { ReplaceKnockoutPlayerDialog } from './ReplaceKnockoutPlayerDialog'
 import { NextStepBanner } from './NextStepBanner'
 import { useLoading }                  from '@/components/shared/GlobalLoader'
 
@@ -29,12 +31,15 @@ interface Props {
   rrStageId?:  string
   /** True when this is embedded inside a single_round_robin event */
   isRRFormat?: boolean
+  /** RR group standings — used to order "Replace Player" candidates by group finish */
+  rrStandings?: GroupStandings[]
 }
 
-export function SingleKOStage({ tournament, players, matches, matchBase, rrStageId, isRRFormat }: Props) {
+export function SingleKOStage({ tournament, players, matches, matchBase, rrStageId, isRRFormat, rrStandings = [] }: Props) {
   const [isPending, startTransition] = useTransition()
   const { setLoading }               = useLoading()
   const [showReset, setShowReset]    = useState(false)
+  const [showReplacePlayer, setShowReplacePlayer] = useState(false)
 
   const isGenerated  = tournament.bracket_generated || !!tournament.stage2_bracket_generated
   const canGenerate  = isRRFormat ? !!rrStageId : players.length >= 2
@@ -209,6 +214,13 @@ export function SingleKOStage({ tournament, players, matches, matchBase, rrStage
                     : <Shuffle className="h-4 w-4" />}
                   {isPending ? 'Working…' : 'Re-generate Bracket'}
                 </Button>
+                {isRRFormat && (
+                  <Button variant="ghost" onClick={() => setShowReplacePlayer(true)} disabled={isPending}
+                    className="text-muted-foreground hover:text-orange-600 hover:bg-orange-500/10">
+                    <ArrowLeftRight className="h-4 w-4" />
+                    Replace Player
+                  </Button>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {hasResults
                     ? `⚠ ${doneCount} completed result${doneCount !== 1 ? 's' : ''} will be erased.`
@@ -249,6 +261,17 @@ export function SingleKOStage({ tournament, players, matches, matchBase, rrStage
             : undefined
         }
       />
+
+      {isRRFormat && (
+        <ReplaceKnockoutPlayerDialog
+          open={showReplacePlayer}
+          onOpenChange={setShowReplacePlayer}
+          tournamentId={tournament.id}
+          koMatches={matches}
+          players={players}
+          rrStandings={rrStandings}
+        />
+      )}
     </div>
   )
 }

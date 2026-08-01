@@ -278,6 +278,7 @@ export default async function AdminEventPage({ params, searchParams }: PageProps
                       matchBase={matchBase}
                       rrStageId={rrStage?.id}
                       isRRFormat
+                      rrStandings={rrStandings}
                     />
                   </TabsContent>
                 )}
