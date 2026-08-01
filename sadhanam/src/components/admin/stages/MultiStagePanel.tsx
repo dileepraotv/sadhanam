@@ -27,7 +27,7 @@ import { useTransition, useState } from 'react'
 import {
   Users, Shuffle, RefreshCw, Lock, AlertTriangle,
   CheckCircle2, ChevronRight, Trophy, Layers,
-  ChevronDown, ArrowDown, RotateCcw,
+  ChevronDown, ArrowDown, RotateCcw, ArrowLeftRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Tournament, Player, Match, Stage, RRStageConfig } from '@/lib/types'
@@ -47,6 +47,7 @@ import { NextStepBanner } from './NextStepBanner'
 import { GroupStandingsTable } from './GroupStandingsTable'
 import { ResetStageDialog } from './ResetStageDialog'
 import { FinalizeStage1Dialog } from './FinalizeStage1Dialog'
+import { ReplaceKnockoutPlayerDialog } from './ReplaceKnockoutPlayerDialog'
 import { createRRStage, resetStage, closeStage1, forceCloseStage1, resetKOStage, deleteStageOnly } from '@/lib/actions/stages'
 import { generateGroups, generateFixtures } from '@/lib/actions/roundRobin'
 import { generateKnockoutStage } from '@/lib/actions/knockout'
@@ -94,6 +95,7 @@ export function MultiStagePanel({
   const [showAdvance,        setShowAdvance]        = useState(false)
   const [showForceFinalize,  setShowForceFinalize]  = useState(false)
   const [showKOReset,        setShowKOReset]        = useState(false)
+  const [showReplacePlayer,  setShowReplacePlayer]  = useState(false)
 
   const cfg     = rrStage?.config as RRStageConfig | undefined
   const rrPhase = resolveRRPhase(tournament, rrStage, rrStandings, rrMatches, allComplete)
@@ -516,14 +518,24 @@ export function MultiStagePanel({
                 {koMatches.filter(m => m.status === 'complete').length} /{' '}
                 {koMatches.filter(m => m.status !== 'bye').length} matches complete
               </span>
-              <Button
-                variant="ghost" size="sm"
-                onClick={() => setShowKOReset(true)}
-                disabled={isPending}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              >
-                <RotateCcw className="h-3.5 w-3.5" /> Reset KO Bracket
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={() => setShowReplacePlayer(true)}
+                  disabled={isPending}
+                  className="text-muted-foreground hover:text-orange-600 hover:bg-orange-500/10"
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5" /> Replace Player
+                </Button>
+                <Button
+                  variant="ghost" size="sm"
+                  onClick={() => setShowKOReset(true)}
+                  disabled={isPending}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Reset KO Bracket
+                </Button>
+              </div>
             </div>
 
             <BracketView
@@ -559,6 +571,16 @@ export function MultiStagePanel({
         isPending={isPending}
         onConfirm={handleKOReset}
         extraWarning="Stage 1 results are preserved. You can regenerate the bracket from the same standings."
+      />
+
+      {/* Replace a withdrawn/retired knockout player */}
+      <ReplaceKnockoutPlayerDialog
+        open={showReplacePlayer}
+        onOpenChange={setShowReplacePlayer}
+        tournamentId={tournament.id}
+        koMatches={koMatches}
+        players={players}
+        rrStandings={rrStandings}
       />
 
       {/* Force-finalize dialog */}

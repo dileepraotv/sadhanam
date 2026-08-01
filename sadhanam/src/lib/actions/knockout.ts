@@ -389,3 +389,81 @@ export async function generateKnockoutStage(
   await revalidateTournamentPaths(supabase, tournamentId)
   return { qualifierCount: qualifiers.length }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// replaceKnockoutPlayer
+// Lets an admin substitute a player who has withdrawn/retired after the
+// knockout bracket was generated but BEFORE their match has started —
+// e.g. the runner-up from a group withdraws, and the group's 3rd-place
+// finisher should take their seat.
+//
+// Deliberately narrow/safe:
+//  • Only touches ONE knockout match — every other match (including ones
+//    already played) is left completely untouched.
+//  • Only allowed while the match is still 'pending' with no winner —
+//    once a result exists for that match, use score correction instead.
+//  • The incoming player must not already be seated in another
+//    (non-bye) knockout match in the same stage.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function replaceKnockoutPlayer(
+  matchId:      string,
+  tournamentId: string,
+  oldPlayerId:  string,
+  newPlayerId:  string,
+): Promise<{ error?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { data: t } = await supabase
+    .from('tournaments')
+    .select('id')
+    .eq('id', tournamentId)
+    .eq('created_by', user.id)
+    .single()
+  if (!t) return { error: 'Tournament not found' }
+
+  if (oldPlayerId === newPlayerId) return { error: 'Pick a different player to replace with.' }
+
+  const { data: match } = await supabase
+    .from('matches')
+    .select('id, tournament_id, stage_id, match_kind, status, winner_id, player1_id, player2_id')
+    .eq('id', matchId)
+    .eq('tournament_id', tournamentId)
+    .single()
+  if (!match) return { error: 'Match not found' }
+  if (match.match_kind !== 'knockout') return { error: 'Only knockout matches can have a player replaced.' }
+  if (match.status !== 'pending' || match.winner_id) {
+    return { error: 'This match has already started or completed — its players can no longer be swapped.' }
+  }
+  if (match.player1_id !== oldPlayerId && match.player2_id !== oldPlayerId) {
+    return { error: 'That player is not seated in this match — the bracket may have just changed. Refresh and try again.' }
+  }
+
+  const { data: newPlayer } = await supabase
+    .from('players')
+    .select('id')
+    .eq('id', newPlayerId)
+    .eq('tournament_id', tournamentId)
+    .single()
+  if (!newPlayer) return { error: 'Replacement player not found in this tournament.' }
+
+  // Guard against double-placing the incoming player elsewhere in the bracket
+  const { data: clash } = await supabase
+    .from('matches')
+    .select('id')
+    .eq('stage_id', match.stage_id)
+    .neq('id', matchId)
+    .neq('status', 'bye')
+    .or(`player1_id.eq.${newPlayerId},player2_id.eq.${newPlayerId}`)
+    .limit(1)
+    .maybeSingle()
+  if (clash) return { error: 'That player is already seated in another knockout match.' }
+
+  const col = match.player1_id === oldPlayerId ? 'player1_id' : 'player2_id'
+  const { error } = await supabase.from('matches').update({ [col]: newPlayerId }).eq('id', matchId)
+  if (error) return { error: error.message }
+
+  await revalidateTournamentPaths(supabase, tournamentId)
+  return {}
+}
