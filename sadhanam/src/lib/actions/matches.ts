@@ -47,7 +47,7 @@ async function loadMatchWithFormat(supabase: ReturnType<typeof createClient>, ma
       id, tournament_id, round, match_number,
       player1_id, player2_id, winner_id, status,
       next_match_id, next_slot, started_at,
-      match_kind, match_format,
+      match_kind, match_format, round_name,
       bracket_side, loser_next_match_id, loser_next_slot,
       tournament:tournaments ( id, format, status, championship_id, sport_type )
     `)
@@ -64,7 +64,7 @@ async function loadMatchWithFormat(supabase: ReturnType<typeof createClient>, ma
         id, tournament_id, round, match_number,
         player1_id, player2_id, winner_id, status,
         next_match_id, next_slot, started_at,
-        match_kind,
+        match_kind, round_name,
         bracket_side, loser_next_match_id, loser_next_slot,
         tournament:tournaments ( id, format, status, championship_id, sport_type )
       `)
@@ -243,11 +243,14 @@ export async function saveGameScore(
     if (propErr) return { success: false, error: `Match complete but bracket advance failed: ${propErr.message}. Please refresh and try again.` }
   }
 
-  // ── 9b-DE. Route loser into Losers Bracket (double-elimination only) ───────
+  // ── 9b-DE/Bronze. Route loser into Losers Bracket (DE) or 3rd-place match ──
+  // Single-elim semifinal losers have bracket_side=null but may carry
+  // loser_next_match_id pointing at the bronze-medal match (see knockout.ts).
   const bracketSide = (match as unknown as { bracket_side?: string | null }).bracket_side
   const loserNextMatchId = (match as unknown as { loser_next_match_id?: string | null }).loser_next_match_id
   const loserNextSlot = (match as unknown as { loser_next_slot?: number | null }).loser_next_slot
-  if (isMatchComplete && bracketSide === 'winners' && loserNextMatchId && matchWinnerId) {
+  const routeLoser = bracketSide === 'winners' || bracketSide == null
+  if (isMatchComplete && routeLoser && loserNextMatchId && matchWinnerId) {
     const loserId = match.player1_id === matchWinnerId ? match.player2_id : match.player1_id
     if (loserId) {
       const col = loserNextSlot === 1 ? 'player1_id' : 'player2_id'
@@ -267,7 +270,9 @@ export async function saveGameScore(
   } else {
     // ── 9c. If this is the KO Final, mark tournament complete ────────────────
     // Round-robin and team_submatch matches never advance via next_match_id.
-    if (matchWinnerId && !match.next_match_id && match.match_kind !== 'round_robin' && bracketSide !== 'grand_final') {
+    // The 3rd-place/bronze match also has no next_match_id but must not
+    // trigger tournament completion on its own.
+    if (matchWinnerId && !match.next_match_id && match.match_kind !== 'round_robin' && bracketSide !== 'grand_final' && match.round_name !== '3rd Place') {
       await supabase
         .from('tournaments')
         .update({ status: 'complete' })
@@ -437,7 +442,7 @@ export async function declareMatchWinner(
   // two follow-up round-trips later in the function.
   const { data: match } = await supabase
     .from('matches')
-    .select('tournament_id, player1_id, player2_id, status, next_match_id, next_slot, match_kind, bracket_side, loser_next_match_id, loser_next_slot, tournament:tournaments(championship_id)')
+    .select('tournament_id, player1_id, player2_id, status, next_match_id, next_slot, match_kind, round_name, bracket_side, loser_next_match_id, loser_next_slot, tournament:tournaments(championship_id)')
     .eq('id', matchId)
     .single()
 
@@ -492,7 +497,8 @@ export async function declareMatchWinner(
   const dMatchBracketSide = (match as unknown as { bracket_side?: string | null }).bracket_side
   const dLoserNextMatchId = (match as unknown as { loser_next_match_id?: string | null }).loser_next_match_id
   const dLoserNextSlot    = (match as unknown as { loser_next_slot?: number | null }).loser_next_slot
-  if (!isTeamSub && dMatchBracketSide === 'winners' && dLoserNextMatchId) {
+  const dRouteLoser = dMatchBracketSide === 'winners' || dMatchBracketSide == null
+  if (!isTeamSub && dRouteLoser && dLoserNextMatchId) {
     const loserId = winnerId === match.player1_id ? match.player2_id : match.player1_id
     if (loserId) {
       const col = dLoserNextSlot === 1 ? 'player1_id' : 'player2_id'
@@ -506,7 +512,7 @@ export async function declareMatchWinner(
   }
 
   // 3. KO Final: mark tournament complete when there's no next match
-  if (!isTeamSub && !match.next_match_id && match.match_kind !== 'round_robin' && dMatchBracketSide !== 'grand_final') {
+  if (!isTeamSub && !match.next_match_id && match.match_kind !== 'round_robin' && dMatchBracketSide !== 'grand_final' && match.round_name !== '3rd Place') {
     await supabase.from('tournaments').update({ status: 'complete' }).eq('id', match.tournament_id)
   }
 
@@ -711,11 +717,12 @@ export async function bulkSaveGameScores(
       if (propErr) return { success: false, error: `Match saved but bracket advance failed: ${propErr.message}` }
     }
 
-    // ── 11. DE: route loser to Losers Bracket ────────────────────────────────
+    // ── 11. DE/Bronze: route loser to Losers Bracket or 3rd-place match ──────
     const bracketSide = (match as unknown as { bracket_side?: string | null }).bracket_side
     const loserNextMatchId = (match as unknown as { loser_next_match_id?: string | null }).loser_next_match_id
     const loserNextSlot = (match as unknown as { loser_next_slot?: number | null }).loser_next_slot
-    if (isMatchComplete && bracketSide === 'winners' && loserNextMatchId && matchWinnerId) {
+    const routeLoser = bracketSide === 'winners' || bracketSide == null
+    if (isMatchComplete && routeLoser && loserNextMatchId && matchWinnerId) {
       const loserId = match.player1_id === matchWinnerId ? match.player2_id : match.player1_id
       if (loserId) {
         const col = loserNextSlot === 1 ? 'player1_id' : 'player2_id'
@@ -727,7 +734,7 @@ export async function bulkSaveGameScores(
     if (isMatchComplete && bracketSide === 'grand_final' && matchWinnerId) {
       const { advanceDEPlayers } = await import('./doubleElimination')
       await advanceDEPlayers(matchId, match.tournament_id)
-    } else if (matchWinnerId && !match.next_match_id && match.match_kind !== 'round_robin' && bracketSide !== 'grand_final') {
+    } else if (matchWinnerId && !match.next_match_id && match.match_kind !== 'round_robin' && bracketSide !== 'grand_final' && match.round_name !== '3rd Place') {
       await supabase.from('tournaments').update({ status: 'complete' }).eq('id', match.tournament_id)
     }
 

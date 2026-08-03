@@ -201,6 +201,33 @@ export async function generateBracketAction(tournamentId: string) {
     }
   }
 
+  // 3rd place / bronze match — the two semifinal losers play each other.
+  // Only exists when there's an actual semifinal round (totalRounds >= 2).
+  if (totalRounds >= 2) {
+    const bronzeId = crypto.randomUUID()
+    const semifinalRound = totalRounds - 1
+    const semifinalRows = matchRows.filter(r => r.round === semifinalRound)
+    semifinalRows.forEach((row, idx) => {
+      row.loser_next_match_id = bronzeId
+      row.loser_next_slot     = idx === 0 ? 1 : 2
+    })
+    matchRows.push({
+      id:            bronzeId,
+      tournament_id: tournamentId,
+      round:         totalRounds + 1,
+      match_number:  1,
+      player1_id:    null,
+      player2_id:    null,
+      player1_games: 0,
+      player2_games: 0,
+      winner_id:     null,
+      status:        'pending',
+      next_match_id: null,
+      next_slot:     null,
+      round_name:    '3rd Place',
+    })
+  }
+
   const { error: matchErr } = await supabase.from('matches').insert(matchRows)
   if (matchErr) throw new Error(matchErr.message)
 

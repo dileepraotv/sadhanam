@@ -367,6 +367,35 @@ export async function generateKnockoutStage(
     }
   }
 
+  // 3rd place / bronze match — the two semifinal losers play each other.
+  // Only exists when there's an actual semifinal round (totalRounds >= 2).
+  if (totalRounds >= 2) {
+    const bronzeId = crypto.randomUUID()
+    const semifinalRound = totalRounds - 1
+    const semifinalRows = koMatchRows.filter(r => r.round === semifinalRound)
+    semifinalRows.forEach((row, idx) => {
+      row.loser_next_match_id = bronzeId
+      row.loser_next_slot     = idx === 0 ? 1 : 2
+    })
+    koMatchRows.push({
+      id:            bronzeId,
+      tournament_id: tournamentId,
+      stage_id:      koStage.id,
+      match_kind:    'knockout',
+      round:         totalRounds + 1,
+      match_number:  1 + offset,
+      player1_id:    null,
+      player2_id:    null,
+      player1_games: 0,
+      player2_games: 0,
+      winner_id:     null,
+      status:        'pending',
+      next_match_id: null,
+      next_slot:     null,
+      round_name:    '3rd Place',
+    })
+  }
+
   const { error: insErr } = await supabase.from('matches').insert(koMatchRows)
   if (insErr) return { error: insErr.message }
 

@@ -46,13 +46,18 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
     )
   }
 
-  const rounds       = groupByRound(matches)
-  const totalRounds  = rounds.length
-  const displayRound = activeRound ?? latestRound
+  const rounds        = groupByRound(matches)
+  // The 3rd-place/bronze match lives in its own round after the Final, but
+  // must not be counted when deriving "totalRounds" (used to label real
+  // elimination rounds) or the sibling-pair connector geometry in FullBracket.
+  const bronzeRound   = rounds.find(r => r.roundName === '3rd Place')
+  const bracketRounds = bronzeRound ? rounds.filter(r => r !== bronzeRound) : rounds
+  const totalRounds   = bracketRounds.length
+  const displayRound  = activeRound ?? latestRound
 
   const roundTabs = rounds.map(r => ({
     round:     r.round,
-    label:     getRoundTab(r.round, totalRounds),
+    label:     r === bronzeRound ? '3rd Place' : getRoundTab(r.round, totalRounds),
     liveCount: r.matches.filter(m => m.status === 'live').length,
     isLatest:  r.round === latestRound,
   }))
@@ -128,7 +133,21 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
 
       {/* ── Content ── */}
       {displayRound === -1 ? (
-        <FullBracket rounds={rounds} isAdmin={isAdmin} onMatchClick={onMatchClick} />
+        <>
+          <FullBracket rounds={bracketRounds} isAdmin={isAdmin} onMatchClick={onMatchClick} />
+          {bronzeRound && (
+            <div className="flex flex-col gap-2 pt-2 max-w-xs">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                🥉 3rd Place Match
+              </span>
+              <DrawCard
+                match={bronzeRound.matches[0]}
+                isAdmin={isAdmin}
+                onClick={onMatchClick && bronzeRound.matches[0].status !== 'bye' ? () => onMatchClick(bronzeRound.matches[0]) : undefined}
+              />
+            </div>
+          )}
+        </>
       ) : (
         <RoundList
           round={rounds.find(r => r.round === displayRound)!}
