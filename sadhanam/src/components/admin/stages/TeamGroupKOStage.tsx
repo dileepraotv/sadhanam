@@ -41,7 +41,7 @@ import {
 import { saveGameScore, declareMatchWinner, updateMatchFormat } from '@/lib/actions/matches'
 import { RubberScorer, type RubberSubmatch } from '@/components/shared/RubberScorer'
 import { computeGroupLayout, groupLayoutSummary, snakeAssign } from '@/lib/roundrobin/groupLayout'
-import type { MatchFormat } from '@/lib/types'
+import type { MatchFormat, SportType } from '@/lib/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Local types (mirrors TeamLeagueStage to avoid cross-file coupling)
@@ -663,6 +663,7 @@ function TeamsTab({ tournament, teams, teamMatches, stage, loadData, isPending, 
 
   const hasFixtures = teamMatches.some(m => m.group_id != null)
   const isCorbillon = tournament.format_type === 'team_group_corbillon' || tournament.format_type === 'team_league_ko'
+  const isBadminton = tournament.sport_type === 'badminton'
   const playerCount = isCorbillon ? 2 : 3
 
   const handleAdd = async (data: TeamFormData) => {
@@ -763,7 +764,7 @@ function TeamsTab({ tournament, teams, teamMatches, stage, loadData, isPending, 
           <Button onClick={onGenerateKO} disabled={isPending || teams.length < 2} className="gap-2 shrink-0">
             {isPending
               ? <><span className="tt-spinner tt-spinner-sm" /> Generating…</>
-              : <><PlayCircle className="h-4 w-4" /> {isCorbillon ? 'Generate Corbillon Bracket' : 'Generate Swaythling Bracket'}</>
+              : <><PlayCircle className="h-4 w-4" /> {isCorbillon ? `Generate ${isBadminton ? 'Knockout' : 'Corbillon'} Bracket` : 'Generate Swaythling Bracket'}</>
             }
           </Button>
         </div>
@@ -779,7 +780,7 @@ function TeamsTab({ tournament, teams, teamMatches, stage, loadData, isPending, 
           <h2 className="text-base font-semibold">Teams — {formatLabel}</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {isCorbillon
-              ? 'Corbillon Cup: 4 singles + 1 doubles per tie. 2 players per team (Position 1 = A, 2 = B).'
+              ? `${isBadminton ? 'Team knockout' : 'Corbillon Cup'}: 4 singles + 1 doubles per tie. 2 players per team (Position 1 = A, 2 = B).`
               : 'Swaythling Cup: 5 singles, no doubles per tie. 3 players per team (A, B, C).'}
           </p>
         </div>
@@ -947,7 +948,7 @@ type GameLocal = { s1: string; s2: string }
 // RubberScorer is imported from @/components/shared/RubberScorer
 // This thin adapter translates local Submatch type to the shared interface
 function RubberScorerAdapter({
-  submatch, teamA, teamB, tournamentId, matchFormat, onSaved,
+  submatch, teamA, teamB, tournamentId, matchFormat, sport, onSaved,
 }: {
   submatch:     Submatch
   teamA:        TeamWithPlayers | null
@@ -955,6 +956,7 @@ function RubberScorerAdapter({
   isCorbillon:  boolean
   tournamentId: string
   matchFormat:  MatchFormat
+  sport?:       SportType
   onSaved:      () => void
 }) {
   return (
@@ -964,6 +966,7 @@ function RubberScorerAdapter({
       nameB={teamB?.name ?? 'Team B'}
       tournamentId={tournamentId}
       matchFormat={matchFormat}
+      sport={sport}
       onSaved={onSaved}
     />
   )
@@ -1092,10 +1095,11 @@ function FixtureDetailPanel({
   match:            TeamMatchRich
   teams:            TeamWithPlayers[]
   isCorbillon:      boolean
-  tournament:       { id: string; format: string }
+  tournament:       { id: string; format: string; sport_type?: SportType | null }
   loadData:         () => void
   showColumnLayout?: boolean
 }) {
+  const sport: SportType = tournament.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
   const [expandedRubber, setExpandedRubber] = useState<string | null>(null)
   const [lineupEdits,    setLineupEdits]    = useState<Map<string, [string|null,string|null,string|null|undefined,string|null|undefined]>>(new Map())
   const [savingLineup,   setSavingLineup]   = useState(false)
@@ -1123,7 +1127,7 @@ function FixtureDetailPanel({
   }
   // Use the individual match's saved format if available, fall back to tournament default
   const getMatchFormat = (sm: Submatch): MatchFormat =>
-    (sm.scoring?.match_format as MatchFormat | undefined) ?? (tournament.format as MatchFormat) ?? 'bo5'
+    (sm.scoring?.match_format as MatchFormat | undefined) ?? (tournament.format as MatchFormat) ?? (sport === 'badminton' ? 'bo3' : 'bo5')
 
   // Auto-save default player assignments on first render if not yet saved
   // This ensures scoring pages always show real names instead of TBD
@@ -1337,6 +1341,7 @@ function FixtureDetailPanel({
                       isCorbillon={isCorbillon}
                       tournamentId={tournament.id}
                       matchFormat={getMatchFormat(sm)}
+                      sport={sport}
                       onSaved={loadData}
                     />
                   </div>
@@ -1391,6 +1396,7 @@ function FixtureDetailPanel({
                     isCorbillon={isCorbillon}
                     tournamentId={tournament.id}
                     matchFormat={getMatchFormat(sm)}
+                    sport={sport}
                     onSaved={loadData}
                   />
                 </div>
@@ -2272,7 +2278,10 @@ export function TeamGroupKOStage({ tournament, matchBase }: {
   const { teams, teamMatches, groups, stage, loading, loadData } = useTeamGroupData(tournament.id)
 
   const isCorbillon  = tournament.format_type === 'team_group_corbillon' || tournament.format_type === 'team_league_ko'
-  const formatLabel  = isCorbillon ? 'Corbillon Cup' : 'Swaythling Cup'
+  const isBadminton  = tournament.sport_type === 'badminton'
+  const formatLabel  = isCorbillon
+    ? (isBadminton ? '2-Player Team Knockout' : 'Corbillon Cup')
+    : 'Swaythling Cup'
   // KO-only formats: team_league_ko and team_league_swaythling have no group stage
   const isKOOnly = tournament.format_type === 'team_league_ko'
                || tournament.format_type === 'team_league_swaythling'

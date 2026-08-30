@@ -218,7 +218,10 @@ export function TeamLeagueStage({ tournament, matchBase, view: _view, showSeedIn
   const allRRDone        = rrMatches.length > 0 && rrMatches.every(m => m.status === 'complete')
 
   // Internal tab state — mirrors TeamGroupKOStage pattern
-  const formatLabel = isKOFormat ? 'Corbillon Cup' : isSwaythling ? 'Swaythling Cup'
+  // "Corbillon Cup" is a table-tennis-only trophy name; team_league_ko doubles
+  // as the 2-players-per-team badminton knockout, so keep it sport-neutral there.
+  const formatLabel = isKOFormat ? (tournament.sport_type === 'badminton' ? '2-Player Team Knockout' : 'Corbillon Cup')
+    : isSwaythling ? 'Swaythling Cup'
     : isThomas ? 'Thomas Cup' : isUber ? 'Uber Cup' : isSudirman ? 'Sudirman Cup' : 'Team League'
   const tabs = [
     { key: 'teams',    label: 'Teams' },
@@ -737,7 +740,7 @@ function TeamSetupView({
           <Button onClick={handleGenerate} disabled={isPending || !canGenerate} className="gap-2 shrink-0">
             {isPending
               ? <><span className="tt-spinner tt-spinner-sm" /> Generating…</>
-              : <><PlayCircle className="h-4 w-4" /> {isKOFormat ? 'Generate Corbillon Bracket' : isSwaythlingFormat ? 'Generate Swaythling Bracket' : isThomasFormat ? 'Generate Thomas Cup Bracket' : isUberFormat ? 'Generate Uber Cup Bracket' : isSudirmanFormat ? 'Generate Sudirman Cup Bracket' : 'Generate Schedule'}</>
+              : <><PlayCircle className="h-4 w-4" /> {isKOFormat ? `Generate ${tournament.sport_type === 'badminton' ? 'Knockout' : 'Corbillon'} Bracket` : isSwaythlingFormat ? 'Generate Swaythling Bracket' : isThomasFormat ? 'Generate Thomas Cup Bracket' : isUberFormat ? 'Generate Uber Cup Bracket' : isSudirmanFormat ? 'Generate Sudirman Cup Bracket' : 'Generate Schedule'}</>
             }
           </Button>
         </div>
@@ -890,7 +893,7 @@ function TeamSetupView({
         <Button onClick={handleGenerate} disabled={isPending} size="lg" className="gap-2 w-full">
           {isPending
             ? <><span className="tt-spinner tt-spinner-sm" /> Generating…</>
-            : <><PlayCircle className="h-5 w-5" /> {isKOFormat ? 'Generate Corbillon Cup Bracket' : isSwaythlingFormat ? 'Generate Swaythling Cup Bracket' : isThomasFormat ? 'Generate Thomas Cup Bracket' : isUberFormat ? 'Generate Uber Cup Bracket' : isSudirmanFormat ? 'Generate Sudirman Cup Bracket' : 'Generate Team Schedule'}</>
+            : <><PlayCircle className="h-5 w-5" /> {isKOFormat ? `Generate ${tournament.sport_type === 'badminton' ? 'Knockout' : 'Corbillon Cup'} Bracket` : isSwaythlingFormat ? 'Generate Swaythling Cup Bracket' : isThomasFormat ? 'Generate Thomas Cup Bracket' : isUberFormat ? 'Generate Uber Cup Bracket' : isSudirmanFormat ? 'Generate Sudirman Cup Bracket' : 'Generate Team Schedule'}</>
           }
         </Button>
       )}
@@ -1427,7 +1430,8 @@ function TeamKOBracketUI({
   }
 
   const cupFormatTitles: Record<string, string> = {
-    team_league_ko: 'Corbillon Cup', team_league_swaythling: 'Swaythling Cup',
+    team_league_ko: tournament.sport_type === 'badminton' ? 'Team Knockout' : 'Corbillon Cup',
+    team_league_swaythling: 'Swaythling Cup',
     team_thomas: 'Thomas Cup', team_uber: 'Uber Cup', team_sudirman: 'Sudirman Cup',
   }
   const formatTitle = cupFormatTitles[tournament.format_type ?? ''] ?? (isRRKO ? 'Knockout Phase' : 'Team Knockout')

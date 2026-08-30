@@ -117,7 +117,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Round Robin + Knockout (Flexible)',
   },
   {
-    value: 'team_league_ko', category: 'teams', sports: ['table_tennis'],
+    value: 'team_league_ko', category: 'teams', sports: ['table_tennis', 'badminton'],
     icon: <Shield className="h-4 w-4" />,
     label: 'Knockout (Corbillon Cup)',
     tagline: '4 singles + 1 doubles · 2 players/team',
@@ -188,6 +188,21 @@ const FORMAT_OPTIONS: FormatOption[] = [
   },
 ]
 
+// team_league_ko's label/description reference "Corbillon Cup" — an ITTF
+// (table tennis) trophy name. When the same 2-players-per-team knockout
+// structure is used for badminton, show sport-neutral copy instead.
+function displayFormat(opt: FormatOption, sport: SportType): FormatOption {
+  if (opt.value === 'team_league_ko' && sport === 'badminton') {
+    return {
+      ...opt,
+      label: 'Knockout (2 Players/Team)',
+      description: 'Team knockout for 2-player badminton teams. Each tie consists of 4 singles rubbers and 1 doubles rubber. First team to win 3 rubbers wins the tie.',
+      defaultName: 'Teams - Knockout (2 Players)',
+    }
+  }
+  return opt
+}
+
 // Accent color is driven by SPORT (orange for table tennis, sky for
 // badminton — see SportBadge.tsx), not by format. With 12 formats across
 // 2 sports, giving each format its own hue competed with the sport color
@@ -206,9 +221,9 @@ interface Props {
 export function NewEventForm({ cid, createAction }: Props) {
   const today = new Date().toISOString().split('T')[0]
 
-  const [sport,       setSport]            = useState<SportType>('table_tennis')
-  const [formatType,  setFormatTypeState] = useState<FormatType>('single_knockout')
-  const [name,        setName]            = useState(() => `${FORMAT_OPTIONS[0].defaultName} ${getDateSuffix()}`)
+  const [sport,       setSport]            = useState<SportType | null>(null)
+  const [formatType,  setFormatTypeState] = useState<FormatType | null>(null)
+  const [name,        setName]            = useState('')
   const [nameEdited,  setNameEdited]      = useState(false)
   const [date,        setDate]            = useState(today)
   const [activeTab,   setActiveTab]       = useState<Category>('singles')
@@ -216,23 +231,25 @@ export function NewEventForm({ cid, createAction }: Props) {
   const { setLoading } = useLoading()
   const formRef = useRef<HTMLFormElement>(null)
 
-  const handleSelectFormat = (value: FormatType) => {
+  const handleSelectFormat = (value: FormatType, forSport?: SportType | null) => {
     setFormatTypeState(value)
     if (!nameEdited) {
       const opt = FORMAT_OPTIONS.find(o => o.value === value)
-      if (opt) setName(`${opt.defaultName} ${getDateSuffix()}`)
+      const activeSport = forSport ?? sport
+      if (opt) setName(`${displayFormat(opt, activeSport ?? 'table_tennis').defaultName} ${getDateSuffix()}`)
     }
   }
 
   const handleSelectSport = (value: SportType) => {
     setSport(value)
-    // If the current format doesn't exist for the new sport, fall back to
-    // the first available format in the active category for that sport.
-    const stillValid = FORMAT_OPTIONS.find(o => o.value === formatType)?.sports.includes(value)
+    // If the current format doesn't exist for the new sport (or no format has
+    // been chosen yet, since sport starts unselected), fall back to the first
+    // available format in the active category for that sport.
+    const stillValid = formatType && FORMAT_OPTIONS.find(o => o.value === formatType)?.sports.includes(value)
     if (!stillValid) {
       const fallback = FORMAT_OPTIONS.find(o => o.category === activeTab && o.sports.includes(value))
         ?? FORMAT_OPTIONS.find(o => o.sports.includes(value))
-      if (fallback) handleSelectFormat(fallback.value)
+      if (fallback) handleSelectFormat(fallback.value, value)
     }
   }
 
@@ -254,42 +271,60 @@ export function NewEventForm({ cid, createAction }: Props) {
     }
   }
 
-  const selected    = FORMAT_OPTIONS.find(o => o.value === formatType)!
+  const selectedRaw = formatType ? FORMAT_OPTIONS.find(o => o.value === formatType) : undefined
+  const selected    = selectedRaw && sport ? displayFormat(selectedRaw, sport) : undefined
   const accent      = sportUi(sport)
   const pillClass   = cn(accent.bgLight, accent.text)
-  const singlesOpts = FORMAT_OPTIONS.filter(o => o.category === 'singles' && o.sports.includes(sport))
-  const teamsOpts   = FORMAT_OPTIONS.filter(o => o.category === 'teams' && o.sports.includes(sport))
+  const singlesOpts = sport ? FORMAT_OPTIONS.filter(o => o.category === 'singles' && o.sports.includes(sport)) : []
+  const teamsOpts   = sport ? FORMAT_OPTIONS.filter(o => o.category === 'teams' && o.sports.includes(sport)) : []
   const listOpts    = activeTab === 'singles' ? singlesOpts : teamsOpts
 
   return (
     <form ref={formRef} onSubmit={handleSubmit}>
       <input type="hidden" name="name"        value={name} />
-      <input type="hidden" name="format_type" value={formatType} />
-      <input type="hidden" name="sport_type"  value={sport} />
+      <input type="hidden" name="format_type" value={formatType ?? ''} />
+      <input type="hidden" name="sport_type"  value={sport ?? ''} />
       <input type="hidden" name="format"      value={sport === 'badminton' ? 'bo3' : 'bo5'} />
 
       {/* ── Sport selector ─────────────────────────────────────────────── */}
-      <div className="mb-4 flex items-center gap-2">
-        {(['table_tennis', 'badminton'] as SportType[]).map(s => {
-          const sUi = sportUi(s)
-          return (
-            <button key={s} type="button"
-              onClick={() => handleSelectSport(s)}
-              className={cn(
-                'flex-1 sm:flex-none px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all flex items-center justify-center gap-2',
-                sport === s
-                  ? `${sUi.border} ${sUi.bgLight} ${sUi.text}`
-                  : `border-border bg-card text-muted-foreground ${sUi.hoverBorder} hover:text-foreground`,
-              )}
-            >
-              <span className="text-base">{s === 'badminton' ? '🏸' : '🏓'}</span>
-              {s === 'badminton' ? 'Badminton' : 'Table Tennis'}
-            </button>
-          )
-        })}
+      <div className="mb-4 flex flex-col gap-1.5">
+        <p className="text-xs font-semibold text-muted-foreground">
+          Sport <span className="text-destructive">*</span>
+        </p>
+        <div className="flex items-center gap-2">
+          {(['table_tennis', 'badminton'] as SportType[]).map(s => {
+            const sUi = sportUi(s)
+            return (
+              <button key={s} type="button"
+                onClick={() => handleSelectSport(s)}
+                className={cn(
+                  'flex-1 sm:flex-none px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all flex items-center justify-center gap-2',
+                  sport === s
+                    ? `${sUi.border} ${sUi.bgLight} ${sUi.text}`
+                    : `border-border bg-card text-muted-foreground ${sUi.hoverBorder} hover:text-foreground`,
+                )}
+              >
+                <span className="text-base">{s === 'badminton' ? '🏸' : '🏓'}</span>
+                {s === 'badminton' ? 'Badminton' : 'Table Tennis'}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* ── Two-column master–detail layout ─────────────────────────────── */}
+      {/* ── Choose a sport first — formats depend on it ──────────────────── */}
+      {!sport ? (
+        <div className="rounded-2xl border-2 border-dashed border-border bg-muted/20 px-6 py-16 flex flex-col items-center justify-center gap-2 text-center">
+          <span className="text-3xl">🏓 · 🏸</span>
+          <p className="font-bold text-foreground">Choose a sport to continue</p>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Select Table Tennis or Badminton above to see the available formats and scoring rules.
+          </p>
+          <Button type="button" variant="outline" size="sm" className="mt-2" asChild>
+            <Link href={`/admin/championships/${cid}`}>Cancel</Link>
+          </Button>
+        </div>
+      ) : sport && selected && (
       <div className="flex flex-col lg:flex-row gap-0 rounded-2xl border border-border overflow-hidden bg-card shadow-sm">
 
         {/* ── LEFT: format picker ───────────────────────────────────────── */}
@@ -305,7 +340,7 @@ export function NewEventForm({ cid, createAction }: Props) {
                   const currentCat = FORMAT_OPTIONS.find(o => o.value === formatType)?.category
                   if (currentCat !== cat) {
                     const first = FORMAT_OPTIONS.find(o => o.category === cat && o.sports.includes(sport))
-                    if (first) handleSelectFormat(first.value)
+                    if (first) handleSelectFormat(first.value, sport)
                   }
                 }}
                 className={cn(
@@ -322,7 +357,8 @@ export function NewEventForm({ cid, createAction }: Props) {
 
           {/* Format list */}
           <div className="flex flex-col py-1 overflow-y-auto">
-            {listOpts.map(opt => {
+            {listOpts.map(rawOpt => {
+              const opt        = displayFormat(rawOpt, sport)
               const isSelected = formatType === opt.value
               return (
                 <button key={opt.value} type="button"
@@ -454,6 +490,7 @@ export function NewEventForm({ cid, createAction }: Props) {
           </div>
         </div>
       </div>
+      )}
     </form>
   )
 }

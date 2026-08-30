@@ -130,9 +130,14 @@ export function FormatTypeBadge({
 }: FormatTypeBadgeProps) {
   const cfg = formatType ? (FORMAT_MAP[formatType] ?? FALLBACK) : FORMAT_MAP['single_knockout']
   const { color, Icon } = cfg
-  const label = sportType
-    ? `${sportEmoji(sportType)} ${SPORT_CONFIG[sportType].label} · ${cfg.label}`
+  // "Corbillon" is a table-tennis-only cup name; team_league_ko is also used
+  // for 2-players-per-team badminton knockouts, so keep the badge sport-neutral there.
+  const baseLabel = (formatType === 'team_league_ko' && sportType === 'badminton')
+    ? 'Teams · Knockout'
     : cfg.label
+  const label = sportType
+    ? `${sportEmoji(sportType)} ${SPORT_CONFIG[sportType].label} · ${baseLabel}`
+    : baseLabel
 
   const textSize   = size === 'sm' ? 'text-[10px]' : 'text-xs'
   const padding    = size === 'sm' ? 'px-1.5 py-0.5' : 'px-2 py-0.5'

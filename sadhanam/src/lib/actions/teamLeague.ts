@@ -785,11 +785,16 @@ export async function generateTeamKOBracket(
 
   const { data: t } = await supabase
     .from('tournaments')
-    .select('id, created_by')
+    .select('id, created_by, format, sport_type')
     .eq('id', tournamentId)
     .eq('created_by', user.id)
     .single()
   if (!t) return { error: 'Tournament not found' }
+
+  // Prefer the tournament's own match format (set correctly per sport at event
+  // creation — bo3 for badminton, bo5 for table tennis) over the function's
+  // default param, so rubbers always use sport-appropriate scoring.
+  const resolvedFormat: MatchFormat = (t.format as MatchFormat | null) ?? matchFormat
 
   // Load teams ordered by seed, then by name (unseeded last)
   const { data: teams } = await supabase
@@ -952,6 +957,7 @@ export async function generateTeamKOBracket(
         winner_id: null, status: 'pending',
         next_match_id: null, next_slot: null,
         match_kind: 'team_submatch',
+        match_format: resolvedFormat,
       })
     }
   }
