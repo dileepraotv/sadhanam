@@ -21,7 +21,7 @@ import { TeamGroupKOStage }   from '@/components/admin/stages/TeamGroupKOStage'
 import { LiveBadge }          from '@/components/shared/LiveBadge'
 import { EventHeaderActions } from './EventHeaderActions'
 import type { Tournament, Player, Match, Stage, RRStageConfig } from '@/lib/types'
-import { formatDate, formatFormatLabel } from '@/lib/utils'
+import { formatDate, matchFormatLabelForSport } from '@/lib/utils'
 import { Calendar, MapPin, ExternalLink, Layers } from 'lucide-react'
 import { loadAdminEventData } from '@/lib/actions/adminEventData'
 
@@ -169,7 +169,7 @@ export default async function AdminEventPage({ params, searchParams }: PageProps
                 {tournament.date && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{formatDate(tournament.date)}</span>}
                 {tournament.location && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{tournament.location}</span>}
                 {!isAnyTeamLeague && !isTeamGroupKO && (
-                  <span className="font-medium text-foreground">{formatFormatLabel(tournament.format)}</span>
+                  <span className="font-medium text-foreground">{matchFormatLabelForSport(tournament)}</span>
                 )}
                 {!isAnyTeamLeague && !isTeamGroupKO && (
                   <span className="text-muted-foreground">{players.length} players</span>

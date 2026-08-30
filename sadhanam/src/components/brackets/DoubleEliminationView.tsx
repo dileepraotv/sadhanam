@@ -15,12 +15,14 @@
 
 import { useState } from 'react'
 import { Trophy, Shield, GitBranch, Swords } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import type { Match } from '@/lib/types'
+import { cn, playerDisplayName } from '@/lib/utils'
+import type { Match, SportType } from '@/lib/types'
 import { MatchCard } from '@/components/bracket/MatchCard'
 import { SingleMatchInlineScorer } from '@/components/bracket/BracketView'
+import { sportUi } from '@/components/shared/SportBadge'
 
 interface Props {
+  tournament?:    { sport_type?: SportType }
   wbMatches:      Match[]
   lbMatches:      Match[]
   gfMatches:      Match[]
@@ -41,6 +43,7 @@ function groupByRound(matches: Match[]): Map<number, Match[]> {
 }
 
 export function DoubleEliminationView({
+  tournament,
   wbMatches,
   lbMatches,
   gfMatches,
@@ -49,6 +52,12 @@ export function DoubleEliminationView({
   onMatchClick,
 }: Props) {
   const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null)
+  const sport: SportType = (['badminton', 'carrom', 'chess'] as SportType[]).includes(tournament?.sport_type as SportType)
+    ? (tournament!.sport_type as SportType) : 'table_tennis'
+  const ui = sportUi(sport)
+  // Chess/Carrom have their own scoring UI that only exists on the full match
+  // page — the inline scorer below only knows rally-point games.
+  const isInlineScoreSport = sport === 'table_tennis' || sport === 'badminton'
 
   const wbByRound = groupByRound(wbMatches.filter(m => m.status !== 'bye'))
   const lbByRound = groupByRound(lbMatches.filter(m => m.status !== 'bye'))
@@ -113,18 +122,18 @@ export function DoubleEliminationView({
     const isBye      = m.status === 'bye'
     const isComplete = m.status === 'complete'
 
-    if (isAdmin && !isBye && !onMatchClick) {
+    if (isAdmin && !isBye && !onMatchClick && isInlineScoreSport) {
       return (
         <div key={m.id} className="flex flex-col">
           <div className="relative">
-            <MatchCard match={m} isAdmin={isAdmin} />
+            <MatchCard match={m} isAdmin={isAdmin} sportType={sport} />
             <button
               onClick={() => toggleExpand(m.id)}
               className={cn(
                 'absolute bottom-2 right-2 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors',
                 isComplete
                   ? 'text-emerald-600 border-emerald-200 dark:border-emerald-800/40 bg-card hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                  : 'text-orange-500 border-orange-200 dark:border-orange-800/40 bg-card hover:bg-orange-50 dark:hover:bg-orange-950/30',
+                  : cn(ui.text, ui.borderLight, 'bg-card', ui.hoverBorder),
               )}
             >
               {isExpanded ? 'Close ↑' : isComplete ? 'Edit →' : 'Score →'}
@@ -134,8 +143,9 @@ export function DoubleEliminationView({
             <div className="border border-t-0 border-border/50 rounded-b-xl px-3 pb-3 pt-2 bg-card">
               <SingleMatchInlineScorer
                 matchId={m.id}
-                player1Name={m.player1?.name ?? 'Player 1'}
-                player2Name={m.player2?.name ?? 'Player 2'}
+                player1Name={playerDisplayName(m.player1)}
+                player2Name={playerDisplayName(m.player2)}
+                sport={sport}
                 onSaved={() => toggleExpand(m.id)}
               />
             </div>
@@ -149,6 +159,7 @@ export function DoubleEliminationView({
         key={m.id}
         match={m}
         isAdmin={isAdmin}
+        sportType={sport}
         onClick={onMatchClick ? () => onMatchClick(m) : undefined}
         href={isAdmin ? `${base}/${m.id}` : undefined}
       />
@@ -163,7 +174,7 @@ export function DoubleEliminationView({
           <Trophy className="h-5 w-5 text-amber-500 shrink-0" />
           <div>
             <p className="text-xs text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider">Champion</p>
-            <p className="font-bold text-amber-800 dark:text-amber-200 text-base">{champion.name}</p>
+            <p className="font-bold text-amber-800 dark:text-amber-200 text-base">{playerDisplayName(champion)}</p>
           </div>
         </div>
       )}
@@ -171,7 +182,7 @@ export function DoubleEliminationView({
       {/* Round tabs — same style as BracketView */}
       <div
         className="flex items-end gap-1 overflow-x-auto scrollbar-hide border-b-2"
-        style={{ borderColor: '#F06321' }}
+        style={{ borderColor: ui.hex }}
       >
         {tabs.map(tab => {
           const isActive = activeTab === tab.id
@@ -187,7 +198,7 @@ export function DoubleEliminationView({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={isActive
-                ? { background: '#F06321', color: '#fff', border: '2px solid #F06321', borderBottom: 'none' }
+                ? { background: ui.hex, color: '#fff', border: `2px solid ${ui.hex}`, borderBottom: 'none' }
                 : undefined}
               className={cn(
                 'shrink-0 flex items-center gap-1.5 px-3 pt-2 pb-2 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap',
@@ -215,7 +226,7 @@ export function DoubleEliminationView({
           {currentTab.matches.some(m => m.status === 'live') && (
             <div className="flex items-center gap-1.5">
               <span className="live-dot" />
-              <span className="text-xs font-bold uppercase tracking-widest text-orange-500">
+              <span className={cn('text-xs font-bold uppercase tracking-widest', ui.text)}>
                 {currentTab.matches.filter(m => m.status === 'live').length} on court
               </span>
             </div>

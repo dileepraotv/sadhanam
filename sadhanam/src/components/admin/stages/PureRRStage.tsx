@@ -17,7 +17,8 @@ import { RotateCcw, RefreshCw, Trophy, ChevronDown, ChevronRight, AlertTriangle 
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
 import { SPORT_RULES, FORMAT_CONFIGS } from '@/lib/scoring/types'
 import { matchStatusClasses } from '@/components/shared/MatchUI'
-import { cn } from '@/lib/utils'
+import Link from 'next/link'
+import { cn, playerDisplayName } from '@/lib/utils'
 import type { Tournament, Player, Match, Game, SportType } from '@/lib/types'
 import type { PlayerStanding } from '@/lib/roundrobin/types'
 import { Button } from '@/components/ui/button'
@@ -39,7 +40,8 @@ interface Props {
 }
 
 export function PureRRStage({ tournament, players, matches, games, matchBase }: Props) {
-  const sport: SportType = tournament.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
+  const sport: SportType = (['badminton', 'carrom', 'chess'] as SportType[]).includes(tournament.sport_type as SportType)
+    ? (tournament.sport_type as SportType) : 'table_tennis'
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
   const { setLoading }               = useLoading()
@@ -196,7 +198,7 @@ export function PureRRStage({ tournament, players, matches, games, matchBase }: 
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <LeagueStandingsTable standings={standings} />
+          <LeagueStandingsTable standings={standings} sport={sport} />
         </CardContent>
       </Card>
 
@@ -267,10 +269,18 @@ export function PureRRStage({ tournament, players, matches, games, matchBase }: 
 
 // ── Inline standings table ────────────────────────────────────────────────────
 
-function LeagueStandingsTable({ standings }: { standings: PlayerStanding[] }) {
+function LeagueStandingsTable({ standings, sport = 'table_tennis' }: { standings: PlayerStanding[]; sport?: SportType }) {
   if (standings.length === 0) {
     return <div className="px-4 py-8 text-center text-sm text-muted-foreground">No standings yet.</div>
   }
+
+  const isChess  = sport === 'chess'
+  const isCarrom = sport === 'carrom'
+  // Chess: single decisive game per match — Wins/Draws/Losses + Points (W=1, D=0.5) drive rank.
+  // Carrom: "games" here are boards — label them accordingly. Point diff = board-point margin.
+  const unitWonLabel  = isCarrom ? 'BW' : 'GW'
+  const unitLostLabel = isCarrom ? 'BL' : 'GL'
+  const unitDiffLabel = isCarrom ? 'BD' : 'GD'
 
   return (
     <div className="overflow-x-auto">
@@ -281,10 +291,12 @@ function LeagueStandingsTable({ standings }: { standings: PlayerStanding[] }) {
             <th className="px-3 py-2 text-left text-xs font-bold text-muted-foreground">Player</th>
             <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">MP</th>
             <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">W</th>
+            {isChess && <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">D</th>}
             <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">L</th>
-            <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">GW</th>
-            <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">GL</th>
-            <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">GD</th>
+            {isChess && <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">Pts</th>}
+            {!isChess && <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">{unitWonLabel}</th>}
+            {!isChess && <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">{unitLostLabel}</th>}
+            {!isChess && <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">{unitDiffLabel}</th>}
             <th className="px-3 py-2 text-center text-xs font-bold text-muted-foreground">PD</th>
           </tr>
         </thead>
@@ -305,15 +317,19 @@ function LeagueStandingsTable({ standings }: { standings: PlayerStanding[] }) {
               </td>
               <td className="px-3 py-2 text-center text-xs text-muted-foreground">{s.matchesPlayed}</td>
               <td className="px-3 py-2 text-center text-xs font-bold text-emerald-600 dark:text-emerald-400">{s.wins}</td>
+              {isChess && <td className="px-3 py-2 text-center text-xs text-muted-foreground">{s.draws}</td>}
               <td className="px-3 py-2 text-center text-xs text-muted-foreground">{s.losses}</td>
-              <td className="px-3 py-2 text-center text-xs text-muted-foreground">{s.gamesWon}</td>
-              <td className="px-3 py-2 text-center text-xs text-muted-foreground">{s.gamesLost}</td>
-              <td className={cn('px-3 py-2 text-center text-xs font-semibold',
-                s.gameDifference > 0 ? 'text-emerald-600 dark:text-emerald-400' :
-                s.gameDifference < 0 ? 'text-red-500' : 'text-muted-foreground'
-              )}>
-                {s.gameDifference > 0 ? `+${s.gameDifference}` : s.gameDifference}
-              </td>
+              {isChess && <td className="px-3 py-2 text-center text-xs font-bold text-foreground">{s.points}</td>}
+              {!isChess && <td className="px-3 py-2 text-center text-xs text-muted-foreground">{s.gamesWon}</td>}
+              {!isChess && <td className="px-3 py-2 text-center text-xs text-muted-foreground">{s.gamesLost}</td>}
+              {!isChess && (
+                <td className={cn('px-3 py-2 text-center text-xs font-semibold',
+                  s.gameDifference > 0 ? 'text-emerald-600 dark:text-emerald-400' :
+                  s.gameDifference < 0 ? 'text-red-500' : 'text-muted-foreground'
+                )}>
+                  {s.gameDifference > 0 ? `+${s.gameDifference}` : s.gameDifference}
+                </td>
+              )}
               <td className={cn('px-3 py-2 text-center text-xs font-semibold',
                 s.pointsDifference > 0 ? 'text-emerald-600 dark:text-emerald-400' :
                 s.pointsDifference < 0 ? 'text-red-500' : 'text-muted-foreground'
@@ -338,6 +354,10 @@ function PureRRFixtureRow({ match: m, matchBase, sport = 'table_tennis' }: { mat
   const p1Won = isComplete && m.winner_id === m.player1_id
   const p2Won = isComplete && m.winner_id === m.player2_id
   const games = m.games ? [...m.games].sort((a,b) => a.game_number - b.game_number) : []
+  // Chess/Carrom have their own dedicated scoring UI (W/D/L picker, board
+  // tally) — not the rally-point game grid this inline scorer renders.
+  // Send those sports to the full match page instead of expanding inline.
+  const usesInlineScorer = sport === 'table_tennis' || sport === 'badminton'
 
   return (
     <div className={cn(
@@ -346,11 +366,14 @@ function PureRRFixtureRow({ match: m, matchBase, sport = 'table_tennis' }: { mat
       isComplete ? 'border-border/40 bg-muted/10' : 'border-border bg-card',
     )}>
       <div className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/10 transition-colors"
-        onClick={() => !isBye && setExpanded(v => !v)}>
+        onClick={() => {
+          if (isBye) return
+          if (usesInlineScorer) setExpanded(v => !v)
+        }}>
         {/* P1 */}
         <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end text-right">
           <span className={cn('truncate text-sm', p1Won ? 'font-bold text-foreground' : isComplete ? 'font-normal text-muted-foreground' : 'font-semibold')}>
-            {m.player1?.name ?? '—'}
+            {playerDisplayName(m.player1) === 'TBD' ? '—' : playerDisplayName(m.player1)}
           </span>
           {p1Won && <span className="text-amber-500 text-xs shrink-0">🏆</span>}
           {(isComplete || isLive) && (
@@ -369,7 +392,7 @@ function PureRRFixtureRow({ match: m, matchBase, sport = 'table_tennis' }: { mat
           )}
           {p2Won && <span className="text-amber-500 text-xs shrink-0">🏆</span>}
           <span className={cn('truncate text-sm', p2Won ? 'font-bold text-foreground' : isComplete ? 'font-normal text-muted-foreground' : 'font-semibold')}>
-            {m.player2?.name ?? '—'}
+            {playerDisplayName(m.player2) === 'TBD' ? '—' : playerDisplayName(m.player2)}
           </span>
         </div>
         {/* Score chips */}
@@ -383,7 +406,7 @@ function PureRRFixtureRow({ match: m, matchBase, sport = 'table_tennis' }: { mat
             ))}
           </div>
         )}
-        {!isBye && (
+        {!isBye && usesInlineScorer && (
           <button onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
             className={cn('text-[11px] font-semibold px-2 py-1 rounded-lg border transition-colors whitespace-nowrap shrink-0',
               isComplete ? 'text-emerald-600 border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
@@ -391,10 +414,18 @@ function PureRRFixtureRow({ match: m, matchBase, sport = 'table_tennis' }: { mat
             {expanded ? 'Close' : isComplete ? 'Edit' : 'Score'}
           </button>
         )}
+        {!isBye && !usesInlineScorer && (
+          <Link href={`${matchBase}/${m.id}`} onClick={e => e.stopPropagation()}
+            className={cn('text-[11px] font-semibold px-2 py-1 rounded-lg border transition-colors whitespace-nowrap shrink-0',
+              isComplete ? 'text-emerald-600 border-emerald-200 dark:border-emerald-800/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                         : 'text-orange-500 border-orange-200 dark:border-orange-800/40 hover:bg-orange-50 dark:hover:bg-orange-950/30')}>
+            {isComplete ? 'Edit' : 'Score'}
+          </Link>
+        )}
       </div>
-      {expanded && (
+      {expanded && usesInlineScorer && (
         <div className="border-t border-border/40 px-3 pb-3 pt-2">
-          <PureRRInlineScorer matchId={m.id} p1Name={m.player1?.name ?? 'P1'} p2Name={m.player2?.name ?? 'P2'} sport={sport} onSaved={() => setExpanded(false)} />
+          <PureRRInlineScorer matchId={m.id} p1Name={playerDisplayName(m.player1)} p2Name={playerDisplayName(m.player2)} sport={sport} onSaved={() => setExpanded(false)} />
         </div>
       )}
     </div>

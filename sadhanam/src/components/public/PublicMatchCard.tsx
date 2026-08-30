@@ -11,7 +11,7 @@
  *   - Declared: "Admin-declared result" note when no game chips
  */
 
-import { cn }         from '@/lib/utils'
+import { cn, playerDisplayName } from '@/lib/utils'
 import type { Match, Game, SportType } from '@/lib/types'
 import {
   WinnerTrophy,
@@ -137,7 +137,7 @@ export function PublicMatchCard({ match, onMatchClick, compact = false, groupNam
         <div
           className="absolute bottom-0 left-0 right-0 h-0.5"
           style={{
-            background: 'linear-gradient(90deg, transparent 0%, #F06321 50%, transparent 100%)',
+            background: `linear-gradient(90deg, transparent 0%, ${ui.hex} 50%, transparent 100%)`,
             animation: 'pulse 2s ease-in-out infinite',
           }}
         />
@@ -178,7 +178,7 @@ function PlayerRow({
           isLoser  ? LOSER_NAME_CLS  : '',
           !isWinner && !isLoser && player?.name ? 'font-medium text-foreground' : '',
         )}>
-          {player?.name ?? 'TBD'}
+          {playerDisplayName(player)}
         </span>
       </div>
 

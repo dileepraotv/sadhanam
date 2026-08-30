@@ -36,7 +36,7 @@ import {
   AlertTriangle, Trophy, CheckCircle2, RefreshCw,
 } from 'lucide-react'
 import { cn }          from '@/lib/utils'
-import type { Tournament, Player, Stage, RRStageConfig } from '@/lib/types'
+import type { Tournament, Player, Stage, RRStageConfig, SportType } from '@/lib/types'
 import { computeGroupLayout, groupLayoutSummary, validateGroupLayout } from '@/lib/roundrobin/groupLayout'
 import { seedingMethodCaption } from '@/lib/roundrobin/seedingCopy'
 import type { GroupStandings } from '@/lib/roundrobin/types'
@@ -98,7 +98,11 @@ export function MultiStageSetup({
   // Config form state (only shown in not_configured phase)
   const [perGroup,      setPerGroup]      = useState('4')   // players per group → groups auto-calculated
   const [advanceCount,  setAdvanceCount]  = useState('2')
-  const [matchFormat,   setMatchFormat]   = useState<'bo1' | 'bo3' | 'bo5' | 'bo7'>('bo3')
+  const [matchFormat,   setMatchFormat]   = useState<'bo1' | 'bo3' | 'bo5' | 'bo7'>(
+    tournament.sport_type === 'badminton' ? 'bo3'
+    : tournament.sport_type === 'chess' || tournament.sport_type === 'carrom' ? 'bo1'
+    : 'bo5',
+  )
   const [allowThird,    setAllowThird]    = useState(false)
   const [thirdCount,    setThirdCount]    = useState('2')
 
@@ -258,6 +262,7 @@ export function MultiStageSetup({
           players={players}
           onSubmit={handleCreateStage}
           isPending={isPending}
+          sport={tournament.sport_type}
         />
       )}
 
@@ -523,6 +528,7 @@ interface ConfigFormProps {
   players:       Player[]
   onSubmit:      () => void
   isPending:     boolean
+  sport?:        SportType
 }
 
 function ConfigForm({
@@ -531,8 +537,11 @@ function ConfigForm({
   matchFormat, setMatchFormat,
   allowThird, setAllowThird,
   thirdCount, setThirdCount,
-  players, onSubmit, isPending,
+  players, onSubmit, isPending, sport,
 }: ConfigFormProps) {
+  // Chess (single decisive game) and Carrom (race to a board-point target)
+  // don't play "best of N games" — hide the selector for those sports.
+  const hasBestOfFormat = sport !== 'chess' && sport !== 'carrom'
   const ppg      = Math.max(2, parseInt(perGroup) || 4)
   const nLayout   = computeGroupLayout(players.length, ppg)
   const nG        = nLayout.numGroups
@@ -553,7 +562,7 @@ function ConfigForm({
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {/* Row 1: three controls — single column on mobile, 3-col on sm+ */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className={cn('grid grid-cols-1 gap-4', hasBestOfFormat ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Players per group</Label>
             <input
@@ -584,18 +593,20 @@ function ConfigForm({
             </Select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">Match format (groups)</Label>
-            <Select value={matchFormat} onValueChange={v => setMatchFormat(v as 'bo1'|'bo3'|'bo5'|'bo7')}>
-              <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bo1">Best of 1</SelectItem>
-                <SelectItem value="bo3">Best of 3</SelectItem>
-                <SelectItem value="bo5">Best of 5</SelectItem>
-                <SelectItem value="bo7">Best of 7</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {hasBestOfFormat && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Match format (groups)</Label>
+              <Select value={matchFormat} onValueChange={v => setMatchFormat(v as 'bo1'|'bo3'|'bo5'|'bo7')}>
+                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bo1">Best of 1</SelectItem>
+                  <SelectItem value="bo3">Best of 3</SelectItem>
+                  <SelectItem value="bo5">Best of 5</SelectItem>
+                  <SelectItem value="bo7">Best of 7</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Best-third toggle */}

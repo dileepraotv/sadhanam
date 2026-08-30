@@ -28,8 +28,8 @@ import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronRight, Trophy, Info } from 'lucide-react'
 import { WinnerTrophy, matchStatusClasses, MatchStatusBadge } from '@/components/shared/MatchUI'
 import { sportUi, type SportUiClasses } from '@/components/shared/SportBadge'
-import { cn }             from '@/lib/utils'
-import type { Match, Tournament, Stage, RRStageConfig } from '@/lib/types'
+import { cn, playerDisplayName } from '@/lib/utils'
+import type { Match, Tournament, Stage, RRStageConfig, SportType } from '@/lib/types'
 import type { RRGroup, GroupStandings, PlayerStanding } from '@/lib/roundrobin/types'
 
 interface Props {
@@ -125,6 +125,7 @@ export function PublicRRView({
           <StandingsTable
             standings={currentStandings.standings}
             advanceCount={advanceCount}
+            sport={tournament.sport_type}
           />
         ) : (
           <div className="rounded-xl bg-muted/20 border border-border/40 px-4 py-8 text-center text-sm text-muted-foreground">
@@ -168,9 +169,10 @@ export function PublicRRView({
 
 // ── StandingsTable ─────────────────────────────────────────────────────────────
 
-function StandingsTable({ standings, advanceCount }: {
+function StandingsTable({ standings, advanceCount, sport = 'table_tennis' }: {
   standings:    PlayerStanding[]
   advanceCount: number
+  sport?:       SportType
 }) {
   if (!standings.length) {
     return (
@@ -180,16 +182,23 @@ function StandingsTable({ standings, advanceCount }: {
     )
   }
 
+  const isChess  = sport === 'chess'
+  const isCarrom = sport === 'carrom'
+
   return (
     <div className="rounded-xl border border-border/60 overflow-hidden overflow-x-auto">
       {/* Header */}
-      <div className="grid grid-cols-[auto_1fr_repeat(5,auto)] gap-x-3 px-4 py-2 bg-muted/30 border-b border-border/40 text-[10px] font-bold uppercase tracking-widest text-muted-foreground min-w-[340px]">
+      <div className={cn(
+        'grid gap-x-3 px-4 py-2 bg-muted/30 border-b border-border/40 text-[10px] font-bold uppercase tracking-widest text-muted-foreground min-w-[340px]',
+        isChess ? 'grid-cols-[auto_1fr_repeat(6,auto)]' : 'grid-cols-[auto_1fr_repeat(5,auto)]',
+      )}>
         <span className="w-5 text-center">#</span>
         <span>Player</span>
         <span className="w-7 text-center">MP</span>
         <span className="w-7 text-center">W</span>
+        {isChess && <span className="w-7 text-center">D</span>}
         <span className="w-7 text-center">L</span>
-        <span className="w-7 text-center">GD</span>
+        {isChess ? <span className="w-8 text-center">Pts</span> : <span className="w-7 text-center">{isCarrom ? 'BD' : 'GD'}</span>}
         <span className="w-8 text-center">PD</span>
       </div>
 
@@ -202,7 +211,8 @@ function StandingsTable({ standings, advanceCount }: {
         return (
           <div key={p.playerId}>
             <div className={cn(
-              'grid grid-cols-[auto_1fr_repeat(5,auto)] gap-x-3 px-4 py-2.5 text-sm min-w-[340px]',
+              'gap-x-3 px-4 py-2.5 text-sm min-w-[340px]',
+              isChess ? 'grid grid-cols-[auto_1fr_repeat(6,auto)]' : 'grid grid-cols-[auto_1fr_repeat(5,auto)]',
               'transition-colors',
               idx % 2 === 0 ? 'bg-transparent' : 'bg-muted/10',
               isQualifier && 'bg-green-50/50 dark:bg-green-950/10',
@@ -240,14 +250,21 @@ function StandingsTable({ standings, advanceCount }: {
                 'w-7 text-center font-semibold tabular-nums',
                 isQualifier ? 'text-green-700 dark:text-green-400' : 'text-foreground',
               )}>{p.wins}</span>
+              {isChess && (
+                <span className="w-7 text-center text-muted-foreground tabular-nums">{p.draws}</span>
+              )}
               <span className="w-7 text-center text-muted-foreground tabular-nums">{p.losses}</span>
-              <span className={cn(
-                'w-7 text-center tabular-nums font-medium',
-                p.gameDifference > 0 ? 'text-green-700 dark:text-green-400' :
-                p.gameDifference < 0 ? 'text-destructive/70' : 'text-muted-foreground',
-              )}>
-                {p.gameDifference > 0 ? '+' : ''}{p.gameDifference}
-              </span>
+              {isChess ? (
+                <span className="w-8 text-center font-bold text-foreground tabular-nums">{p.points}</span>
+              ) : (
+                <span className={cn(
+                  'w-7 text-center tabular-nums font-medium',
+                  p.gameDifference > 0 ? 'text-green-700 dark:text-green-400' :
+                  p.gameDifference < 0 ? 'text-destructive/70' : 'text-muted-foreground',
+                )}>
+                  {p.gameDifference > 0 ? '+' : ''}{p.gameDifference}
+                </span>
+              )}
               <span className={cn(
                 'w-8 text-center tabular-nums text-muted-foreground',
                 p.pointsDifference > 0 ? 'text-green-700/60 dark:text-green-400/60' :
@@ -386,7 +403,7 @@ function FixtureRow({ match, onMatchClick, ui }: {
         <span className={cn(
           'flex-1 min-w-0 truncate text-xs font-medium',
           p1Won ? 'font-bold text-foreground' : p2Won ? 'font-normal text-muted-foreground' : 'text-foreground',
-        )}>{p1?.name ?? 'TBD'}</span>
+        )}>{playerDisplayName(p1)}</span>
         {(isComplete || isLive) && (
           <span className={cn(
             'font-mono font-bold tabular-nums w-5 text-right shrink-0 text-xs',
@@ -409,7 +426,7 @@ function FixtureRow({ match, onMatchClick, ui }: {
         <span className={cn(
           'flex-1 min-w-0 truncate text-xs font-medium',
           p2Won ? 'font-bold text-foreground' : p1Won ? 'font-normal text-muted-foreground' : 'text-foreground',
-        )}>{p2?.name ?? 'TBD'}</span>
+        )}>{playerDisplayName(p2)}</span>
         {(isComplete || isLive) && (
           <span className={cn(
             'font-mono font-bold tabular-nums w-5 text-right shrink-0 text-xs',

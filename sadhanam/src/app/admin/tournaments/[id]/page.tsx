@@ -14,7 +14,7 @@ import { StagesTab }      from '@/components/admin/stages/StagesTab'
 import { PublicLiveTab }  from '@/components/admin/stages/PublicLiveTab'
 import { TournamentTypeSelector } from '@/components/admin/stages/TournamentTypeSelector'
 import type { Tournament, Player, Match, Stage } from '@/lib/types'
-import { formatDate, formatFormatLabel } from '@/lib/utils'
+import { formatDate, matchFormatLabelForSport } from '@/lib/utils'
 import {
   Calendar, MapPin, ExternalLink,
 } from 'lucide-react'
@@ -140,7 +140,7 @@ export default async function AdminTournamentPage({ params, searchParams }: Page
                   )}
                   {!isTeamFormat && (
                     <span className="font-medium text-foreground">
-                      {formatFormatLabel(tournament.format)}
+                      {matchFormatLabelForSport(tournament)}
                     </span>
                   )}
                   <FormatTypeBadge formatType={formatType} sportType={tournament.sport_type} />
@@ -228,7 +228,7 @@ function SetupTab({ tournament, players }: { tournament: Tournament; players: Pl
     <div className="flex flex-col gap-5">
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {!isTeamFmt && <InfoTile label="Match Format" value={formatFormatLabel(tournament.format)} />}
+        {!isTeamFmt && <InfoTile label="Match Format" value={matchFormatLabelForSport(tournament)} />}
         {isTeamFmt  && <InfoTile label="Format"       value={ft.replace(/_/g, ' ').replace(/\w/g, c => c.toUpperCase())} />}
         <InfoTile label={isTeamFmt ? 'Teams' : 'Players'} value={isTeamFmt ? '—' : String(players.length)} />
         <InfoTile

@@ -23,7 +23,7 @@
 
 import { useMemo, useState } from 'react'
 import { ArrowLeftRight, Repeat, UserX } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, playerDisplayName } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/index'
 import { replaceKnockoutPlayer } from '@/lib/actions/knockout'
@@ -66,8 +66,8 @@ export function ReplaceKnockoutPlayerDialog({
       if (m.status !== 'pending' || m.winner_id) continue
       const p1 = m.player1_id ? playerById.get(m.player1_id) : null
       const p2 = m.player2_id ? playerById.get(m.player2_id) : null
-      if (p1) opts.push({ matchId: m.id, playerId: p1.id, playerName: p1.name, opponentName: p2?.name ?? 'TBD', roundName: m.round_name ?? `Round ${m.round}` })
-      if (p2) opts.push({ matchId: m.id, playerId: p2.id, playerName: p2.name, opponentName: p1?.name ?? 'TBD', roundName: m.round_name ?? `Round ${m.round}` })
+      if (p1) opts.push({ matchId: m.id, playerId: p1.id, playerName: playerDisplayName(p1), opponentName: p2 ? playerDisplayName(p2) : 'TBD', roundName: m.round_name ?? `Round ${m.round}` })
+      if (p2) opts.push({ matchId: m.id, playerId: p2.id, playerName: playerDisplayName(p2), opponentName: p1 ? playerDisplayName(p1) : 'TBD', roundName: m.round_name ?? `Round ${m.round}` })
     }
     return opts.sort((a, b) => a.playerName.localeCompare(b.playerName))
   }, [koMatches, playerById])

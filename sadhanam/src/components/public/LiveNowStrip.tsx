@@ -13,7 +13,7 @@
  * Clicking a card opens the match detail dialog (via onMatchClick).
  */
 
-import { cn }       from '@/lib/utils'
+import { cn, playerDisplayName } from '@/lib/utils'
 import type { Match } from '@/lib/types'
 import type { RRGroup } from '@/lib/roundrobin/types'
 
@@ -98,13 +98,13 @@ function LiveNowCard({ match, groupLabel, onClick }: {
       {/* Players + set score */}
       <div className="flex flex-col gap-0.5 mb-2">
         <LivePlayerRow
-          name={p1?.name ?? 'TBD'}
+          name={playerDisplayName(p1)}
           seed={p1?.seed}
           score={match.player1_games}
           isLeading={p1won}
         />
         <LivePlayerRow
-          name={p2?.name ?? 'TBD'}
+          name={playerDisplayName(p2)}
           seed={p2?.seed}
           score={match.player2_games}
           isLeading={p2won}

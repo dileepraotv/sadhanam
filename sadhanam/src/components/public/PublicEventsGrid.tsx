@@ -19,7 +19,7 @@ import { SportBadge, sportAccentColor, SPORT_CONFIG } from '@/components/shared/
 import { SportFilterTabs, type SportFilter } from '@/components/shared/SportFilterTabs'
 import { Badge } from '@/components/ui/index'
 import { LiveBadge } from '@/components/shared/LiveBadge'
-import { formatFormatLabel } from '@/lib/utils'
+import { matchFormatLabelForSport } from '@/lib/utils'
 import type { SportType, Tournament } from '@/lib/types'
 
 type EventWithCounts = Tournament & { _live: number; _done: number; _total: number; _winner?: string }
@@ -93,7 +93,7 @@ export function PublicEventsGrid({ cid, events }: Props) {
               <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                 <SportBadge sportType={ev.sport_type} size="sm" />
                 <FormatTypeBadge formatType={ev.format_type ?? null} />
-                <span className="text-muted-foreground/70">{formatFormatLabel(ev.format)}</span>
+                <span className="text-muted-foreground/70">{matchFormatLabelForSport(ev)}</span>
                 {ev._total > 0 && (
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" /> {ev._total} matches

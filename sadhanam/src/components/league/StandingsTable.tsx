@@ -17,6 +17,7 @@
 import { Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlayerStanding } from '@/lib/roundrobin/types'
+import type { SportType } from '@/lib/types'
 
 interface Props {
   standings: PlayerStanding[]
@@ -30,6 +31,8 @@ interface Props {
   showGD?: boolean
   /** Compact mode: tighter padding, smaller fonts. Default: false. */
   compact?: boolean
+  /** Chess needs Draws + Points columns; Carrom relabels GW/GL/GD to boards. Default: table_tennis. */
+  sport?: SportType
 }
 
 export function LeagueStandingsTable({
@@ -39,7 +42,10 @@ export function LeagueStandingsTable({
   showPD  = true,
   showGD  = true,
   compact = false,
+  sport   = 'table_tennis',
 }: Props) {
+  const isChess  = sport === 'chess'
+  const isCarrom = sport === 'carrom'
   if (standings.length === 0) {
     return (
       <div className="px-4 py-8 text-center text-sm text-muted-foreground">
@@ -60,11 +66,21 @@ export function LeagueStandingsTable({
             <th className={cn(px, 'py-2 text-left text-xs font-bold text-muted-foreground')}>Player</th>
             <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-8')}>MP</th>
             <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-8')}>W</th>
+            {isChess && (
+              <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-8')}>D</th>
+            )}
             <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-8')}>L</th>
-            <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-8')}>GW</th>
-            <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-8')}>GL</th>
-            {showGD && (
-              <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-10')}>GD</th>
+            {isChess && (
+              <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-10')}>Pts</th>
+            )}
+            {!isChess && (
+              <>
+                <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-8')}>{isCarrom ? 'BW' : 'GW'}</th>
+                <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-8')}>{isCarrom ? 'BL' : 'GL'}</th>
+              </>
+            )}
+            {showGD && !isChess && (
+              <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-10')}>{isCarrom ? 'BD' : 'GD'}</th>
             )}
             {showPD && (
               <th className={cn(px, 'py-2 text-center text-xs font-bold text-muted-foreground w-10')}>PD</th>
@@ -125,17 +141,31 @@ export function LeagueStandingsTable({
                 <td className={cn(px, py, 'text-center text-xs font-bold text-emerald-600 dark:text-emerald-400')}>
                   {s.wins}
                 </td>
+                {isChess && (
+                  <td className={cn(px, py, 'text-center text-xs text-muted-foreground')}>
+                    {s.draws}
+                  </td>
+                )}
                 <td className={cn(px, py, 'text-center text-xs text-muted-foreground')}>
                   {s.losses}
                 </td>
-                <td className={cn(px, py, 'text-center text-xs text-muted-foreground')}>
-                  {s.gamesWon}
-                </td>
-                <td className={cn(px, py, 'text-center text-xs text-muted-foreground')}>
-                  {s.gamesLost}
-                </td>
+                {isChess && (
+                  <td className={cn(px, py, 'text-center text-xs font-bold text-foreground')}>
+                    {s.points}
+                  </td>
+                )}
+                {!isChess && (
+                  <>
+                    <td className={cn(px, py, 'text-center text-xs text-muted-foreground')}>
+                      {s.gamesWon}
+                    </td>
+                    <td className={cn(px, py, 'text-center text-xs text-muted-foreground')}>
+                      {s.gamesLost}
+                    </td>
+                  </>
+                )}
 
-                {showGD && (
+                {showGD && !isChess && (
                   <td className={cn(px, py, 'text-center text-xs font-semibold',
                     s.gameDifference > 0 ? 'text-emerald-600 dark:text-emerald-400'
                     : s.gameDifference < 0 ? 'text-red-500'

@@ -23,7 +23,7 @@ import { useMemo, useState } from 'react'
 import { Trophy, Users, ChevronRight, Swords } from 'lucide-react'
 import { WinnerTrophy, matchStatusClasses } from '@/components/shared/MatchUI'
 import { sportUi, type SportUiClasses } from '@/components/shared/SportBadge'
-import { cn }                     from '@/lib/utils'
+import { cn, playerDisplayName }  from '@/lib/utils'
 import type { Tournament, Match, Player, Stage, RRStageConfig } from '@/lib/types'
 import type { RRGroup, GroupStandings } from '@/lib/roundrobin/types'
 import { computeAllGroupStandings } from '@/lib/roundrobin/standings'
@@ -414,7 +414,7 @@ function PublicFixtureRow({ match: m, ui }: { match: Match; ui: SportUiClasses }
           <span className={cn(
             'flex-1 min-w-0 truncate text-xs',
             p1Won ? 'font-bold text-foreground' : p2Won ? 'font-normal text-muted-foreground' : 'font-medium text-foreground',
-          )}>{m.player1?.name ?? 'TBD'}</span>
+          )}>{playerDisplayName(m.player1)}</span>
           {(isComplete || isLive) && (
             <span className={cn(
               'font-mono font-bold tabular-nums w-5 text-right shrink-0 text-xs',
@@ -435,7 +435,7 @@ function PublicFixtureRow({ match: m, ui }: { match: Match; ui: SportUiClasses }
           <span className={cn(
             'flex-1 min-w-0 truncate text-xs',
             p2Won ? 'font-bold text-foreground' : p1Won ? 'font-normal text-muted-foreground' : 'font-medium text-foreground',
-          )}>{m.player2?.name ?? 'TBD'}</span>
+          )}>{playerDisplayName(m.player2)}</span>
           {(isComplete || isLive) && (
             <span className={cn(
               'font-mono font-bold tabular-nums w-5 text-right shrink-0 text-xs',

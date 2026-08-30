@@ -104,13 +104,13 @@ export function matchStatusClasses(
   const ui         = sportUi(sportType)
 
   if (variant === 'subtle') {
-    if (isLive)     return 'bg-orange-50/60 dark:bg-orange-950/20'
+    if (isLive)     return ui.bgFaint
     if (isComplete) return 'bg-muted/10'
     return ''
   }
 
   // 'card' variant
-  if (isLive)     return 'border-orange-400/70 bg-orange-50/50 dark:bg-orange-950/15 shadow-sm shadow-orange-200/40 dark:shadow-orange-900/20'
+  if (isLive)     return cn(ui.borderLight, ui.bgFaint, 'shadow-sm')
   if (isComplete) return cn('border-border/40', ui.bgFaint)
   return 'border-border bg-card'
 }

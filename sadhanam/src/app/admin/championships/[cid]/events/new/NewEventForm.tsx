@@ -318,7 +318,7 @@ export function NewEventForm({ cid, createAction }: Props) {
       <input type="hidden" name="name"        value={name} />
       <input type="hidden" name="format_type" value={formatType ?? ''} />
       <input type="hidden" name="sport_type"  value={sport ?? ''} />
-      <input type="hidden" name="format"      value={sport === 'badminton' ? 'bo3' : sport === 'chess' ? 'bo1' : 'bo5'} />
+      <input type="hidden" name="format"      value={sport === 'badminton' ? 'bo3' : sport === 'chess' || sport === 'carrom' ? 'bo1' : 'bo5'} />
       {sport === 'carrom' && (
         <>
           <input type="hidden" name="is_doubles" value={isDoubles ? 'true' : 'false'} />

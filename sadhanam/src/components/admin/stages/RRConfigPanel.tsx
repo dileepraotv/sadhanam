@@ -47,9 +47,12 @@ export interface RRConfigValues {
 }
 
 export function RRConfigPanel({ players, onSubmit, isPending, existing, sport }: Props) {
+  // Chess (single decisive game) and Carrom (race to a board-point target)
+  // don't play "best of N games" — hide the selector and lock the value.
+  const hasBestOfFormat = sport !== 'chess' && sport !== 'carrom'
   const [perGroup,     setPerGroup]     = useState(String(existing ? Math.round(players.length / (existing.numberOfGroups || 1)) : 4))
   const [advanceCount, setAdvanceCount] = useState(String(existing?.advanceCount   ?? 2))
-  const [matchFormat,  setMatchFormat]  = useState<MatchFormat>(existing?.matchFormat ?? 'bo5')
+  const [matchFormat,  setMatchFormat]  = useState<MatchFormat>(existing?.matchFormat ?? (hasBestOfFormat ? 'bo5' : 'bo1'))
   const [allowThird,   setAllowThird]   = useState(existing?.allowBestThird ?? false)
   const [thirdCount,   setThirdCount]   = useState(String(existing?.bestThirdCount ?? 2))
   const [showHelp,       setShowHelp]       = useState(false)
@@ -84,7 +87,9 @@ export function RRConfigPanel({ players, onSubmit, isPending, existing, sport }:
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <SummaryTile label="Groups"      value={String(existing.numberOfGroups)} />
         <SummaryTile label="Top N"       value={`Top ${existing.advanceCount} / group`} />
-        <SummaryTile label="Format"      value={existing.matchFormat?.replace('bo', 'Best of ') ?? 'Bo5'} />
+        {hasBestOfFormat && (
+          <SummaryTile label="Format"      value={existing.matchFormat?.replace('bo', 'Best of ') ?? 'Bo5'} />
+        )}
         <SummaryTile label="Qualifiers"  value={`${totalQExisting} total`}
           sub={existing.allowBestThird ? `+${existing.bestThirdCount} best-third` : undefined}
         />
@@ -131,7 +136,7 @@ export function RRConfigPanel({ players, onSubmit, isPending, existing, sport }:
         )}
 
         {/* Controls */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className={cn('grid grid-cols-1 gap-4', hasBestOfFormat ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs">Players per group</Label>
             <input
@@ -162,18 +167,20 @@ export function RRConfigPanel({ players, onSubmit, isPending, existing, sport }:
             </Select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">Match format</Label>
-            <Select value={matchFormat} onValueChange={v => setMatchFormat(v as MatchFormat)}>
-              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bo1">Best of 1</SelectItem>
-                <SelectItem value="bo3">Best of 3</SelectItem>
-                <SelectItem value="bo5">Best of 5</SelectItem>
-                <SelectItem value="bo7">Best of 7</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {hasBestOfFormat && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs">Match format</Label>
+              <Select value={matchFormat} onValueChange={v => setMatchFormat(v as MatchFormat)}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bo1">Best of 1</SelectItem>
+                  <SelectItem value="bo3">Best of 3</SelectItem>
+                  <SelectItem value="bo5">Best of 5</SelectItem>
+                  <SelectItem value="bo7">Best of 7</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
         </div>
 

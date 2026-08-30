@@ -36,7 +36,7 @@ export default async function EventMatchPage({ params, searchParams }: PageProps
   // Load match
   const { data: match } = await supabase
     .from('matches')
-    .select('*, player1:player1_id(id,name,seed,club), player2:player2_id(id,name,seed,club), winner:winner_id(id,name,seed)')
+    .select('*, player1:player1_id(id,name,seed,club,partner_name), player2:player2_id(id,name,seed,club,partner_name), winner:winner_id(id,name,seed,partner_name)')
     .eq('id', params.mid)
     .eq('tournament_id', params.eid)
     .single()

@@ -199,6 +199,7 @@ export function DoubleEliminationStage({ tournament, players, matches, matchBase
 
       {/* Bracket view */}
       <DoubleEliminationView
+        tournament={tournament}
         wbMatches={wbMatches}
         lbMatches={lbMatches}
         gfMatches={gfMatches}

@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation'
 import type { Tournament, Match } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { DoubleEliminationView } from '@/components/brackets/DoubleEliminationView'
+import { sportEmoji } from '@/components/shared/SportBadge'
 
 interface Props {
   tournament: Tournament
@@ -45,7 +46,7 @@ export function PublicDEView({ tournament, matches: initialMatches }: Props) {
   if (matches.length === 0) {
     return (
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-12 text-center text-muted-foreground">
-        <div className="text-4xl mb-3">🏓</div>
+        <div className="text-4xl mb-3">{sportEmoji(tournament.sport_type)}</div>
         <p className="font-semibold text-foreground">Bracket not yet generated</p>
         <p className="text-sm mt-1">Check back once the organizer has drawn the bracket.</p>
       </div>
@@ -55,6 +56,7 @@ export function PublicDEView({ tournament, matches: initialMatches }: Props) {
   return (
     <div className="page-content">
       <DoubleEliminationView
+        tournament={tournament}
         wbMatches={wbMatches}
         lbMatches={lbMatches}
         gfMatches={gfMatches}

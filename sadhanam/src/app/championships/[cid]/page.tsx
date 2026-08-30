@@ -7,6 +7,7 @@ import { Breadcrumb } from '@/components/shared/Breadcrumb'
 import { LiveBadge } from '@/components/shared/LiveBadge'
 import { PublicEventsGrid } from '@/components/public/PublicEventsGrid'
 import type { Championship, Tournament } from '@/lib/types'
+import { playerDisplayName } from '@/lib/utils'
 
 interface PageProps { params: { cid: string } }
 
@@ -51,16 +52,16 @@ async function getData(cid: string): Promise<{ championship: Championship; allEv
   if (evIds.length > 0) {
     const { data: finals } = await supabase
       .from('matches')
-      .select('tournament_id, winner_id, player1_id, player2_id, player1:player1_id(name), player2:player2_id(name)')
+      .select('tournament_id, winner_id, player1_id, player2_id, player1:player1_id(name,partner_name), player2:player2_id(name,partner_name)')
       .in('tournament_id', evIds)
       .eq('round_name', 'Final')
       .eq('status', 'complete')
     if (finals) {
       for (const f of finals) {
-        const p1 = (f.player1 as unknown as { name: string } | null)
-        const p2 = (f.player2 as unknown as { name: string } | null)
+        const p1 = (f.player1 as unknown as { name: string; partner_name?: string | null } | null)
+        const p2 = (f.player2 as unknown as { name: string; partner_name?: string | null } | null)
         if (f.winner_id && p1?.name && p2?.name) {
-          finalWinners[f.tournament_id] = f.winner_id === f.player1_id ? p1.name : p2.name
+          finalWinners[f.tournament_id] = playerDisplayName(f.winner_id === f.player1_id ? p1 : p2)
         }
       }
     }

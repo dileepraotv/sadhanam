@@ -537,7 +537,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
                   ? 'Draw'
                   : isTeamSub
                   ? (matchState.outcome === 'player1_wins' ? playerDisplayName(p1) : playerDisplayName(p2))
-                  : match.winner?.name
+                  : playerDisplayName(match.winner)
                 }
               </p>
               <p className="text-sm text-muted-foreground mt-1">

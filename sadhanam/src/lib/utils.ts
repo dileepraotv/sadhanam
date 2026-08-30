@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { MatchFormat } from './types'
+import type { MatchFormat, SportType, Tournament } from './types'
+import { SPORT_RULES } from './scoring/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -16,6 +17,23 @@ export function formatDate(dateStr: string | null): string {
 export function formatFormatLabel(format: MatchFormat): string {
   const labels = { bo1: 'Best of 1', bo3: 'Best of 3', bo5: 'Best of 5', bo7: 'Best of 7' }
   return labels[format]
+}
+
+/**
+ * Sport-aware match format label. Chess and Carrom don't play "best of N
+ * games" — chess is a single decisive game, carrom races to a target point
+ * total across a capped number of boards. Table tennis/badminton keep the
+ * familiar "Best of N" label.
+ */
+export function matchFormatLabelForSport(t: Pick<Tournament, 'sport_type' | 'format' | 'carrom_board_target' | 'carrom_max_boards'>): string {
+  const sport: SportType = t.sport_type ?? 'table_tennis'
+  if (sport === 'chess')  return 'Single Game'
+  if (sport === 'carrom') {
+    const target = t.carrom_board_target ?? SPORT_RULES.carrom.boardTarget
+    const boards = t.carrom_max_boards   ?? SPORT_RULES.carrom.maxBoards
+    return `Race to ${target} pts · ${boards} boards`
+  }
+  return formatFormatLabel((t.format as MatchFormat) ?? 'bo5')
 }
 
 export function nextPowerOf2(n: number): number {

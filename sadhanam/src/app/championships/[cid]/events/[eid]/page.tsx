@@ -55,7 +55,7 @@ export default async function PublicEventPage({ params }: PageProps) {
   // Load all matches with match_id in games for PD computation
   const { data: matches } = await supabase
     .from('matches')
-    .select('*, player1:player1_id(id,name,seed,club), player2:player2_id(id,name,seed,club), winner:winner_id(id,name,seed), games(id,match_id,game_number,score1,score2,winner_id)')
+    .select('*, player1:player1_id(id,name,seed,club,partner_name), player2:player2_id(id,name,seed,club,partner_name), winner:winner_id(id,name,seed,partner_name), games(id,match_id,game_number,score1,score2,winner_id)')
     .eq('tournament_id', params.eid)
     .order('round').order('match_number')
 

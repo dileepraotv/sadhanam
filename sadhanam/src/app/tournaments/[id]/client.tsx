@@ -29,7 +29,7 @@ import { BracketView }        from '@/components/bracket/BracketView'
 import { LiveBadge }          from '@/components/shared/LiveBadge'
 import { Badge }              from '@/components/ui/index'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/index'
-import { formatDate, formatFormatLabel } from '@/lib/utils'
+import { formatDate, matchFormatLabelForSport } from '@/lib/utils'
 import { cn }                 from '@/lib/utils'
 import { useRealtimeTournament } from '@/lib/realtime/useRealtimeTournament'
 import type { RealtimeStatus } from '@/lib/realtime/useRealtimeTournament'
@@ -408,7 +408,7 @@ function TournamentHero({ tournament, liveCount, champion, connectionStatus, isA
           )}
           <span className="flex items-center gap-1.5 font-medium text-foreground">
             <Trophy className="h-3.5 w-3.5" />
-            {formatFormatLabel(tournament.format)}
+            {matchFormatLabelForSport(tournament)}
           </span>
           {/* Format type pill */}
           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800/50">

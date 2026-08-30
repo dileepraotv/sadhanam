@@ -11,7 +11,7 @@ import { Shuffle, AlertTriangle, Calendar, MapPin, Trophy } from 'lucide-react'
 import type { Tournament, Player } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/index'
-import { formatDate, formatFormatLabel } from '@/lib/utils'
+import { formatDate, matchFormatLabelForSport } from '@/lib/utils'
 import { generateBracketAction } from '@/lib/actions/tournaments'
 import { toast } from '@/components/ui/toaster'
 
@@ -92,7 +92,7 @@ export function BracketControls({ tournament, players }: Props) {
         <CardContent className="flex flex-col gap-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <InfoTile label="Players"  value={`${players.length}`} />
-            <InfoTile label="Format"   value={formatFormatLabel(tournament.format)} />
+            <InfoTile label="Format"   value={matchFormatLabelForSport(tournament)} />
             <InfoTile
               label="Date"
               value={tournament.date ? formatDate(tournament.date) : '—'}

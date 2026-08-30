@@ -11,12 +11,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
 import { SPORT_RULES, FORMAT_CONFIGS } from '@/lib/scoring/types'
 import { MatchCard } from '@/components/bracket/MatchCard'
 import { sportUi } from '@/components/shared/SportBadge'
-import { cn } from '@/lib/utils'
+import { cn, playerDisplayName } from '@/lib/utils'
 import { toast } from '@/components/ui/toaster'
 import type { Match, SportType } from '@/lib/types'
 import type { GroupStandings } from '@/lib/roundrobin/types'
@@ -54,6 +55,8 @@ export function GroupStandingsTable({
   sport = 'table_tennis',
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(Math.min(initialGroup, Math.max(0, standings.length - 1)))
+  const isChess  = sport === 'chess'
+  const isCarrom = sport === 'carrom'
 
   if (!standings.length) return null
 
@@ -135,8 +138,10 @@ export function GroupStandingsTable({
                   { h: 'Player', cls: 'text-left pl-3' },
                   { h: 'MP', cls: 'text-center' },
                   { h: 'W',  cls: 'text-center' },
+                  ...(isChess ? [{ h: 'D', cls: 'text-center' }] : []),
                   { h: 'L',  cls: 'text-center' },
-                  { h: 'GD', cls: 'text-center' },
+                  ...(isChess ? [{ h: 'Pts', cls: 'text-center' }] : []),
+                  ...(!isChess ? [{ h: isCarrom ? 'BD' : 'GD', cls: 'text-center' }] : []),
                   { h: 'PD', cls: 'text-center' },
                 ].map(({ h, cls }) => (
                   <th key={h} className={cn('py-2 px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground', cls)}>
@@ -187,19 +192,31 @@ export function GroupStandingsTable({
                     <td className="py-2.5 px-2 text-center tabular-nums font-semibold text-green-700 dark:text-green-400">
                       {s.wins}
                     </td>
+                    {isChess && (
+                      <td className="py-2.5 px-2 text-center tabular-nums text-muted-foreground">
+                        {s.draws}
+                      </td>
+                    )}
                     <td className="py-2.5 px-2 text-center tabular-nums text-red-600 dark:text-red-400">
                       {s.losses}
                     </td>
-                    <td className="py-2.5 px-2 text-center tabular-nums">
-                      <span className={cn(
-                        'font-semibold text-sm',
-                        s.gameDifference > 0 ? 'text-green-700 dark:text-green-400' :
-                        s.gameDifference < 0 ? 'text-red-600 dark:text-red-400' :
-                        'text-muted-foreground',
-                      )}>
-                        {s.gameDifference > 0 ? '+' : ''}{s.gameDifference}
-                      </span>
-                    </td>
+                    {isChess && (
+                      <td className="py-2.5 px-2 text-center tabular-nums font-bold text-foreground">
+                        {s.points}
+                      </td>
+                    )}
+                    {!isChess && (
+                      <td className="py-2.5 px-2 text-center tabular-nums">
+                        <span className={cn(
+                          'font-semibold text-sm',
+                          s.gameDifference > 0 ? 'text-green-700 dark:text-green-400' :
+                          s.gameDifference < 0 ? 'text-red-600 dark:text-red-400' :
+                          'text-muted-foreground',
+                        )}>
+                          {s.gameDifference > 0 ? '+' : ''}{s.gameDifference}
+                        </span>
+                      </td>
+                    )}
                     <td className="py-2.5 px-2 text-center tabular-nums">
                       <span className={cn(
                         'text-xs',
@@ -230,7 +247,9 @@ export function GroupStandingsTable({
             </div>
           )}
           <span className="ml-auto text-[10px] text-muted-foreground">
-            MP · W · L · GD = game diff · PD = point diff
+            {isChess
+              ? 'MP · W · D · L · Pts = win + ½·draw · PD = point diff'
+              : `MP · W · L · ${isCarrom ? 'BD = board diff' : 'GD = game diff'} · PD = point diff`}
           </span>
         </div>
       </div>
@@ -310,6 +329,10 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
   const games      = m.games ? [...m.games].sort((a, b) => a.game_number - b.game_number) : []
   const isDeclared = isComplete && games.length === 0
   const ui         = sportUi(sport)
+  // Chess/Carrom use their own dedicated scoring UI (W/D/L picker, board
+  // tally) on the full match page — this inline scorer only knows rally
+  // point games, so route those sports there instead of expanding inline.
+  const usesInlineScorer = sport === 'table_tennis' || sport === 'badminton'
 
   return (
     <div className={cn(
@@ -331,7 +354,7 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
               'truncate text-xs',
               p1Won ? 'font-bold text-foreground' : isComplete ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground',
             )}>
-              {p1?.name ?? <span className="italic text-muted-foreground/50">TBD</span>}
+              {p1 ? playerDisplayName(p1) : <span className="italic text-muted-foreground/50">TBD</span>}
             </span>
           </div>
           {(isComplete || isLive) && (
@@ -342,7 +365,7 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
               {m.player1_games}
             </span>
           )}
-          {isAdmin && !isBye && (
+          {isAdmin && !isBye && usesInlineScorer && (
             <button
               onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
               className={cn(
@@ -354,6 +377,20 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
             >
               {expanded ? '↑' : isComplete ? 'Edit' : 'Score'}
             </button>
+          )}
+          {isAdmin && !isBye && !usesInlineScorer && (
+            <Link
+              href={`${matchBase}/${m.id}`}
+              onClick={e => e.stopPropagation()}
+              className={cn(
+                'text-[11px] font-semibold px-2 py-0.5 rounded-md border transition-colors whitespace-nowrap ml-1',
+                isComplete
+                  ? 'text-slate-600 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  : cn(ui.text, ui.borderLight, ui.hoverBorder),
+              )}
+            >
+              {isComplete ? 'Edit' : 'Score'}
+            </Link>
           )}
         </div>
 
@@ -370,7 +407,7 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
               'truncate text-xs',
               p2Won ? 'font-bold text-foreground' : isComplete ? 'font-normal text-muted-foreground' : 'font-semibold text-foreground',
             )}>
-              {p2?.name ?? <span className="italic text-muted-foreground/50">TBD</span>}
+              {p2 ? playerDisplayName(p2) : <span className="italic text-muted-foreground/50">TBD</span>}
             </span>
           </div>
           {(isComplete || isLive) && (
@@ -412,13 +449,13 @@ function FixtureRow({ match: m, matchBase, isAdmin, sport = 'table_tennis' }: {
 
       {isLive && <div className="h-0.5 bg-gradient-to-r from-orange-400/0 via-orange-500 to-orange-400/0 animate-pulse" />}
 
-      {/* Inline scorer — expands below the match card */}
-      {expanded && isAdmin && m.id && (
+      {/* Inline scorer — expands below the match card (rally sports only) */}
+      {expanded && isAdmin && usesInlineScorer && m.id && (
         <div className="border-t border-border/40 px-3 pb-3 pt-2">
           <InlineMatchScorer
             matchId={m.id}
-            player1Name={p1?.name ?? 'Player 1'}
-            player2Name={p2?.name ?? 'Player 2'}
+            player1Name={playerDisplayName(p1)}
+            player2Name={playerDisplayName(p2)}
             sport={sport}
             onSaved={() => { setExpanded(false) }}
           />

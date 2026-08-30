@@ -19,7 +19,7 @@ import { SportFilterTabs, type SportFilter } from '@/components/shared/SportFilt
 import { Badge } from '@/components/ui/index'
 import { LiveBadge } from '@/components/shared/LiveBadge'
 import { EventActions } from '@/app/admin/championships/[cid]/client'
-import { formatFormatLabel } from '@/lib/utils'
+import { matchFormatLabelForSport } from '@/lib/utils'
 import { useMemo, useState } from 'react'
 import type { SportType, Tournament } from '@/lib/types'
 
@@ -111,7 +111,7 @@ export function AdminEventsGrid({ cid, events }: Props) {
                 <FormatTypeBadge formatType={ev.format_type} size="sm" />
                 {!['team_league','team_league_ko','team_league_swaythling',
                     'team_group_corbillon','team_group_swaythling'].includes(ev.format_type ?? '') && (
-                  <span>{formatFormatLabel(ev.format)}</span>
+                  <span>{matchFormatLabelForSport(ev)}</span>
                 )}
                 {totalCount > 0 && (
                   <span className="flex items-center gap-1">

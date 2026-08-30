@@ -16,7 +16,7 @@ import {
   AlertTriangle, Trash2, Radio, Wifi,
 } from 'lucide-react'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
+import { cn, playerDisplayName } from '@/lib/utils'
 import type { Tournament, Match } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -205,7 +205,7 @@ export function PublicLiveTab({ tournament, matches, matchBase }: Props) {
                   >
                     <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
                     <span className="text-sm font-medium text-foreground flex-1 truncate">
-                      {m.player1?.name ?? 'TBD'} vs {m.player2?.name ?? 'TBD'}
+                      {playerDisplayName(m.player1)} vs {playerDisplayName(m.player2)}
                     </span>
                     <span className="text-xs text-muted-foreground font-mono shrink-0">
                       {m.player1_games}–{m.player2_games}

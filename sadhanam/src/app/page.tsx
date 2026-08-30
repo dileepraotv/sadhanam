@@ -20,6 +20,7 @@ import { ChampionshipGrid }    from '@/components/home/ChampionshipGrid'
 import { EventGrid }           from '@/components/home/EventGrid'
 import { RecentResults }       from '@/components/home/RecentResults'
 import { RealtimeRefresher }   from '@/components/shared/RealtimeRefresher'
+import { playerDisplayName }   from '@/lib/utils'
 import type {
   LiveMatchRow,
   OngoingChampRow,
@@ -58,8 +59,8 @@ async function getHomeData(userId: string | null) {
       id, round, round_name, match_number,
       player1_games, player2_games,
       player1_id, player2_id,
-      player1:player1_id ( name ),
-      player2:player2_id ( name ),
+      player1:player1_id ( name, partner_name ),
+      player2:player2_id ( name, partner_name ),
       tournament:tournament_id (
         id, name, championship_id,
         championships ( id, name )
@@ -96,7 +97,7 @@ async function getHomeData(userId: string | null) {
       : Promise.resolve({ data: [] as { tournament_id: string; status: string }[] }),
     recentEvIds.length > 0
       ? supabase.from('matches')
-          .select('tournament_id, winner_id, player1_id, player2_id, player1:player1_id(name), player2:player2_id(name)')
+          .select('tournament_id, winner_id, player1_id, player2_id, player1:player1_id(name,partner_name), player2:player2_id(name,partner_name)')
           .in('tournament_id', recentEvIds).eq('round_name', 'Final').eq('status', 'complete')
       : Promise.resolve({ data: [] as unknown[] }),
   ])
@@ -147,9 +148,9 @@ async function getHomeData(userId: string | null) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const t  = (m as any).tournament as { id: string; name: string; championship_id: string | null; championships: { id: string; name: string } | null } | null
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const p1 = (m as any).player1 as { name: string } | null
+    const p1 = (m as any).player1 as { name: string; partner_name?: string | null } | null
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const p2 = (m as any).player2 as { name: string } | null
+    const p2 = (m as any).player2 as { name: string; partner_name?: string | null } | null
     const g1 = m.player1_games ?? 0
     const g2 = m.player2_games ?? 0
     return {
@@ -160,8 +161,8 @@ async function getHomeData(userId: string | null) {
       champName:   t?.championships?.name ?? null,
       roundName:   m.round_name ?? `Round ${m.round}`,
       matchNumber: m.match_number ?? null,
-      p1Name:      p1?.name ?? null,
-      p2Name:      p2?.name ?? null,
+      p1Name:      p1 ? playerDisplayName(p1) : null,
+      p2Name:      p2 ? playerDisplayName(p2) : null,
       p1Games:     g1,
       p2Games:     g2,
       p1Leading:   g1 > g2,
@@ -228,14 +229,14 @@ async function getHomeData(userId: string | null) {
   const winnerMap: Record<string, { winner: string; runnerUp: string | null }> = {}
   for (const f of (finalsRes.data ?? []) as unknown as Array<{
     tournament_id: string; winner_id: string | null; player1_id: string | null; player2_id: string | null
-    player1: { name: string } | null; player2: { name: string } | null
+    player1: { name: string; partner_name?: string | null } | null; player2: { name: string; partner_name?: string | null } | null
   }>) {
     const p1 = f.player1
     const p2 = f.player2
     if (f.winner_id && p1 && p2) {
       winnerMap[f.tournament_id] = {
-        winner:   f.winner_id === f.player1_id ? p1.name : p2.name,
-        runnerUp: f.winner_id === f.player1_id ? p2.name : p1.name,
+        winner:   playerDisplayName(f.winner_id === f.player1_id ? p1 : p2),
+        runnerUp: playerDisplayName(f.winner_id === f.player1_id ? p2 : p1),
       }
     }
   }

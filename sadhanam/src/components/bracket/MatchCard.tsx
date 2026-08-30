@@ -61,11 +61,11 @@ export function MatchCard({ match, compact = false, onClick, isAdmin, href, spor
       onClick={onClick}
       className={cn(
         'match-card w-full text-left block rounded-xl border overflow-hidden transition-all',
-        isLive     ? 'border-orange-400/70 bg-orange-50/30 dark:bg-orange-950/10 shadow-sm' :
+        isLive     ? cn(ui.borderLight, ui.bgFaint, 'shadow-sm') :
         isComplete ? cn('border-border/40', ui.bgFaint) :
         isBye      ? 'border-border/20 bg-muted/10' :
                      'border-border bg-card',
-        (onClick || href) && 'cursor-pointer hover:border-orange-400/50 hover:shadow-sm',
+        (onClick || href) && cn('cursor-pointer hover:shadow-sm', ui.hoverBorder),
       )}
     >
       {/* Header row: round label + status badge */}
@@ -132,7 +132,7 @@ export function MatchCard({ match, compact = false, onClick, isAdmin, href, spor
 
       {/* Live pulse bar */}
       {isLive && (
-        <div className="h-0.5 bg-gradient-to-r from-orange-400/0 via-orange-500 to-orange-400/0 animate-pulse" />
+        <div className={cn('h-0.5 animate-pulse', ui.bgSolid)} />
       )}
 
       {/* Admin: score CTA for pending/live */}
@@ -141,7 +141,7 @@ export function MatchCard({ match, compact = false, onClick, isAdmin, href, spor
           <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
             {isLive ? 'Update score' : 'Enter score'}
           </span>
-          <span className="text-[11px] font-bold text-orange-500">→</span>
+          <span className={cn('text-[11px] font-bold', ui.text)}>→</span>
         </div>
       )}
     </Wrapper>

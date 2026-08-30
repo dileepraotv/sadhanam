@@ -51,7 +51,7 @@ export async function loadAdminEventData(
     supabase.from('players').select('*').eq('tournament_id', tournamentId)
       .order('seed', { ascending: true, nullsFirst: false }),
     supabase.from('matches')
-      .select('*, player1:player1_id(id,name,seed,club), player2:player2_id(id,name,seed,club), winner:winner_id(id,name,seed), games(id,match_id,game_number,score1,score2,winner_id)')
+      .select('*, player1:player1_id(id,name,seed,club,partner_name), player2:player2_id(id,name,seed,club,partner_name), winner:winner_id(id,name,seed,partner_name), games(id,match_id,game_number,score1,score2,winner_id)')
       .eq('tournament_id', tournamentId).order('round').order('match_number'),
     supabase.from('stages')
       .select('*, rr_groups(id, stage_id, name, group_number, rr_group_members(player_id))')

@@ -9,12 +9,13 @@ import { useMemo, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Tournament, Match, Player } from '@/lib/types'
+import type { Tournament, Match, Player, SportType } from '@/lib/types'
 import type { PlayerStanding } from '@/lib/roundrobin/types'
 import { createClient } from '@/lib/supabase/client'
 import { LeagueStandingsTable } from '@/components/league/StandingsTable'
 import { PublicMatchCard } from '@/components/public/PublicMatchCard'
 import { computeLeagueStandings } from '@/lib/roundrobin/standings'
+import { sportUi, sportEmoji } from '@/components/shared/SportBadge'
 
 interface Props {
   tournament: Tournament
@@ -77,9 +78,12 @@ export function PublicPureRRView({ tournament, matches: initialMatches, players 
   const totalCount = rrMatches.filter(m => m.status !== 'bye').length
   const liveCount  = rrMatches.filter(m => m.status === 'live').length
 
+  const sport: SportType = tournament.sport_type ?? 'table_tennis'
+  const ui = sportUi(sport)
+
   if (rrMatches.length === 0) return (
     <div className="page-content py-12 text-center text-muted-foreground">
-      <div className="text-4xl mb-3">🏓</div>
+      <div className="text-4xl mb-3">{sportEmoji(sport)}</div>
       <p className="font-semibold text-foreground">League schedule not yet generated</p>
       <p className="text-sm mt-1">Check back once the organizer has set up the fixtures.</p>
     </div>
@@ -93,11 +97,11 @@ export function PublicPureRRView({ tournament, matches: initialMatches, players 
           <span className="text-sm font-semibold">League Progress</span>
           <span className="text-xs text-muted-foreground">
             {doneCount}/{totalCount} complete
-            {liveCount > 0 && <span className="text-orange-500 ml-1">, {liveCount} LIVE</span>}
+            {liveCount > 0 && <span className={cn(ui.text, 'ml-1')}>, {liveCount} LIVE</span>}
           </span>
         </div>
         <div className="h-2 rounded-full bg-muted overflow-hidden">
-          <div className="h-full bg-orange-500 transition-all duration-500"
+          <div className={cn('h-full transition-all duration-500', ui.bgSolid)}
             style={{ width: totalCount ? `${(doneCount / totalCount) * 100}%` : '0%' }} />
         </div>
       </div>
@@ -108,16 +112,16 @@ export function PublicPureRRView({ tournament, matches: initialMatches, players 
           <Trophy className="h-4 w-4 text-amber-500" />
           <h2 className="font-semibold text-base">League Standings</h2>
         </div>
-        <LeagueStandingsTable standings={standings} />
+        <LeagueStandingsTable standings={standings} sport={sport} />
       </div>
 
-      {/* Fixtures — orange tab bar */}
+      {/* Fixtures — sport-tinted tab bar */}
       {roundMap.length > 0 && (
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           {/* Tab bar */}
           <div
             className="flex items-end gap-1 overflow-x-auto scrollbar-hide border-b-2 px-2 pt-2"
-            style={{ borderColor: '#F06321' }}
+            style={{ borderColor: ui.hex }}
           >
             {roundMap.map(([round, ms]) => {
               const isActive = displayRound === round
@@ -128,7 +132,7 @@ export function PublicPureRRView({ tournament, matches: initialMatches, players 
                   key={round}
                   onClick={() => setActiveRound(round)}
                   style={isActive
-                    ? { background: '#F06321', color: '#fff', border: '2px solid #F06321', borderBottom: 'none' }
+                    ? { background: ui.hex, color: '#fff', border: `2px solid ${ui.hex}`, borderBottom: 'none' }
                     : undefined}
                   className={cn(
                     'shrink-0 px-4 pt-2 pb-2 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap flex items-center gap-1.5',
@@ -138,7 +142,7 @@ export function PublicPureRRView({ tournament, matches: initialMatches, players 
                   Matchday {round}
                   {hasLive && (
                     <span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
-                      style={{ background: isActive ? 'rgba(255,255,255,0.35)' : '#F06321', color: '#fff' }}>
+                      style={{ background: isActive ? 'rgba(255,255,255,0.35)' : ui.hex, color: '#fff' }}>
                       ●
                     </span>
                   )}

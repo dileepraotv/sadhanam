@@ -13,6 +13,7 @@ import { Check, Trophy, AlertTriangle } from 'lucide-react'
 import { validateGameScore, formatValidationErrors } from '@/lib/scoring/engine'
 import { SPORT_RULES, FORMAT_CONFIGS } from '@/lib/scoring/types'
 import { toast } from '@/components/ui/toaster'
+import { sportUi, sportEmoji, SPORT_CONFIG, type SportUiClasses } from '@/components/shared/SportBadge'
 
 interface BracketViewProps {
   tournament:    { id: string; name: string; sport_type?: SportType }
@@ -24,7 +25,10 @@ interface BracketViewProps {
 }
 
 export function BracketView({ tournament, matches, isAdmin, isPending, matchBasePath, onMatchClick }: BracketViewProps) {
-  const sport: SportType = tournament.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
+  const sport: SportType = (['badminton', 'carrom', 'chess'] as SportType[]).includes(tournament.sport_type as SportType)
+    ? (tournament.sport_type as SportType) : 'table_tennis'
+  const isInlineScoreSport = sport === 'table_tennis' || sport === 'badminton'
+  const ui = sportUi(sport)
   const latestRound = useMemo(() => {
     const live = matches.find(m => m.status === 'live')?.round
     if (live) return live
@@ -39,7 +43,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
   if (!matches.length) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-        <div className="text-5xl mb-3">🏓</div>
+        <div className="text-5xl mb-3">{sportEmoji(sport)}</div>
         <p className="text-lg font-bold text-foreground">Groups not generated yet</p>
         {isAdmin && <p className="text-sm mt-1 text-muted-foreground">Add players and generate the bracket</p>}
       </div>
@@ -71,7 +75,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
       {/* ── Round tabs ── */}
       <div
         className="flex items-end gap-1 overflow-x-auto pb-0 scrollbar-hide border-b-2"
-        style={{ borderColor: '#F06321' }}
+        style={{ borderColor: ui.hex }}
       >
         {roundTabs.map(tab => {
           const isActive = displayRound === tab.round
@@ -80,13 +84,13 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
               key={tab.round}
               onClick={() => setActiveRound(tab.round)}
               style={isActive
-                ? { background: '#F06321', color: '#fff', border: '2px solid #F06321', borderBottom: 'none' }
+                ? { background: ui.hex, color: '#fff', border: `2px solid ${ui.hex}`, borderBottom: 'none' }
                 : undefined}
               className={cn(
                 // whitespace-nowrap so "Semi Finals" never wraps mid-word
                 'shrink-0 px-4 pt-2.5 pb-2.5 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap',
                 !isActive && tab.isLatest && !activeRound
-                  ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-2 border-b-0 border-orange-300 dark:border-orange-600/50'
+                  ? cn(ui.bgFaint, ui.text, 'border-2 border-b-0', ui.borderLight)
                   : !isActive
                   ? 'text-muted-foreground hover:text-foreground hover:bg-muted/60 dark:hover:bg-muted/40'
                   : '',
@@ -98,7 +102,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
               {tab.liveCount > 0 && (
                 <span
                   className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
-                  style={{ background: isActive ? 'rgba(255,255,255,0.35)' : '#F06321', color: '#fff' }}
+                  style={{ background: isActive ? 'rgba(255,255,255,0.35)' : ui.hex, color: '#fff' }}
                 >
                   {tab.liveCount}
                 </span>
@@ -108,7 +112,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
               {tab.isLatest && !isActive && !activeRound && (
                 <span
                   className="ml-1 inline-block h-1.5 w-1.5 rounded-full"
-                  style={{ background: '#F06321', verticalAlign: 'middle' }}
+                  style={{ background: ui.hex, verticalAlign: 'middle' }}
                 />
               )}
             </button>
@@ -120,7 +124,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
         <button
           onClick={() => setActiveRound(-1)}
           style={displayRound === -1
-            ? { background: '#F06321', color: '#fff', border: '2px solid #F06321', borderBottom: 'none' }
+            ? { background: ui.hex, color: '#fff', border: `2px solid ${ui.hex}`, borderBottom: 'none' }
             : undefined}
           className={cn(
             'shrink-0 px-4 pt-2.5 pb-2.5 text-sm font-bold transition-all rounded-t-lg whitespace-nowrap',
@@ -134,7 +138,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
       {/* ── Content ── */}
       {displayRound === -1 ? (
         <>
-          <FullBracket rounds={bracketRounds} isAdmin={isAdmin} onMatchClick={onMatchClick} />
+          <FullBracket rounds={bracketRounds} isAdmin={isAdmin} onMatchClick={onMatchClick} ui={ui} />
           {bronzeRound && (
             <div className="flex flex-col gap-2 pt-2 max-w-xs">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -143,6 +147,7 @@ export function BracketView({ tournament, matches, isAdmin, isPending, matchBase
               <DrawCard
                 match={bronzeRound.matches[0]}
                 isAdmin={isAdmin}
+                ui={ui}
                 onClick={onMatchClick && bronzeRound.matches[0].status !== 'bye' ? () => onMatchClick(bronzeRound.matches[0]) : undefined}
               />
             </div>
@@ -195,10 +200,11 @@ const CARD_H = 92    // px — enough height for two player rows + divider
 const CONN_W = 30    // connector line width
 const COL_PAD = 10   // gap between card edge and connector
 
-function FullBracket({ rounds, isAdmin, onMatchClick }: {
+function FullBracket({ rounds, isAdmin, onMatchClick, ui }: {
   rounds:        RoundGroup[]
   isAdmin?:      boolean
   onMatchClick?: (match: Match) => void
+  ui:            SportUiClasses
 }) {
   return (
     <div className="overflow-x-auto pb-4">
@@ -217,7 +223,7 @@ function FullBracket({ rounds, isAdmin, onMatchClick }: {
                 <span
                   className={cn(
                     'text-xs font-bold uppercase tracking-wider',
-                    hasLive ? 'text-orange-500' : 'text-muted-foreground',
+                    hasLive ? ui.text : 'text-muted-foreground',
                   )}
                 >
                   {round.roundName}
@@ -278,6 +284,7 @@ function FullBracket({ rounds, isAdmin, onMatchClick }: {
                         <DrawCard
                           match={match}
                           isAdmin={isAdmin}
+                          ui={ui}
                           onClick={onMatchClick && match.status !== 'bye' ? () => onMatchClick(match) : undefined}
                         />
                       </div>
@@ -302,7 +309,7 @@ function FullBracket({ rounds, isAdmin, onMatchClick }: {
 //  • Completed cards get a clear grey background
 //  • Trophy emoji for winner — no icon import needed
 //
-function DrawCard({ match, isAdmin, onClick }: { match: Match; isAdmin?: boolean; onClick?: () => void }) {
+function DrawCard({ match, isAdmin, onClick, ui }: { match: Match; isAdmin?: boolean; onClick?: () => void; ui: SportUiClasses }) {
   const { player1, player2, player1_games, player2_games, status, winner_id } = match
 
   const isComplete = status === 'complete'
@@ -327,7 +334,7 @@ function DrawCard({ match, isAdmin, onClick }: { match: Match; isAdmin?: boolean
         <div className="score-cta">
           <span
             className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg"
-            style={{ background: '#F06321', pointerEvents: 'none' }}
+            style={{ background: ui.hex, pointerEvents: 'none' }}
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -339,7 +346,7 @@ function DrawCard({ match, isAdmin, onClick }: { match: Match; isAdmin?: boolean
       )}
       <Wrapper
         onClick={onClick}
-        className={`w-full text-left block rounded-lg overflow-hidden transition-all duration-150 border-[1.5px] ${cardClass}${canScore ? ' hover:border-orange-400/70' : ''}`}
+        className={cn('w-full text-left block rounded-lg overflow-hidden transition-all duration-150 border-[1.5px]', cardClass, canScore && ui.hoverBorder)}
         style={{
           cursor:    onClick ? 'pointer' : 'default',
           minHeight: CARD_H,
@@ -365,7 +372,7 @@ function DrawCard({ match, isAdmin, onClick }: { match: Match; isAdmin?: boolean
       {isLive && (
         <div style={{
           height:     3,
-          background: 'linear-gradient(90deg,#F06321,#F5853F,#F06321)',
+          background: `linear-gradient(90deg,${ui.hex},${ui.hex}cc,${ui.hex})`,
           animation:  'animate-pulse-slow 2s ease-in-out infinite',
         }} />
       )}
@@ -436,6 +443,11 @@ function RoundList({ round, isAdmin, sport, matchBasePath, onMatchClick, expande
 }) {
   if (!round) return null
 
+  const ui = sportUi(sport)
+  // Chess/Carrom have their own scoring UI that only exists on the full match
+  // page — the inline scorer below only knows rally-point games.
+  const isInlineScoreSport = sport === 'table_tennis' || sport === 'badminton' || !sport
+
   // Sort: live first, then pending, then completed (greyed at bottom)
   const sortedMatches = [...round.matches].sort((a, b) => {
     const order = (s: string) => s === 'live' ? 0 : s === 'pending' ? 1 : 2
@@ -451,8 +463,9 @@ function RoundList({ round, isAdmin, sport, matchBasePath, onMatchClick, expande
     const isBye     = m.status === 'bye'
     const isComplete = m.status === 'complete'
 
-    // Admin: show inline scorer, no navigation
-    if (isAdmin && !isBye && !onMatchClick) {
+    // Admin: show inline scorer, no navigation (rally sports only — chess/carrom
+    // have their own scoring UI that only exists on the full match page)
+    if (isAdmin && !isBye && !onMatchClick && isInlineScoreSport) {
       return (
         <div key={m.id} className="flex flex-col">
           <div className="relative">
@@ -469,7 +482,7 @@ function RoundList({ round, isAdmin, sport, matchBasePath, onMatchClick, expande
                 'absolute bottom-2 right-2 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors',
                 isComplete
                   ? 'text-emerald-600 border-emerald-200 dark:border-emerald-800/40 bg-card hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                  : 'text-orange-500 border-orange-200 dark:border-orange-800/40 bg-card hover:bg-orange-50 dark:hover:bg-orange-950/30',
+                  : cn(ui.text, ui.borderLight, 'bg-card', ui.hoverBorder),
               )}
             >
               {isExpanded ? 'Close ↑' : isComplete ? 'Edit →' : 'Score →'}
@@ -507,7 +520,7 @@ function RoundList({ round, isAdmin, sport, matchBasePath, onMatchClick, expande
       {live.length > 0 && (
         <div className="flex items-center gap-1.5 mb-0.5">
           <span className="live-dot" />
-          <span className="text-xs font-bold uppercase tracking-widest text-orange-500">
+          <span className={cn('text-xs font-bold uppercase tracking-widest', ui.text)}>
             {live.length} on court
           </span>
         </div>
@@ -531,6 +544,7 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
   onSaved?:    () => void
 }) {
   const sportRules = SPORT_RULES[sport]
+  const ui = sportUi(sport)
   const router = useRouter()
   const [games,   setGames]   = useState<{id:string;game_number:number;score1:number;score2:number;winner_id:string|null}[]>([])
   const [local,   setLocal]   = useState<Record<number,{s1:string;s2:string}>>({})
@@ -646,7 +660,7 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
     <div className="flex flex-col gap-2">
       {/* Sport + format context */}
       <div className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
-        <span>{sport === 'badminton' ? '🏸 Badminton' : '🏓 Table Tennis'}</span>
+        <span>{sportEmoji(sport)} {SPORT_CONFIG[sport].label}</span>
         <span className="opacity-40">·</span>
         <span>Race to {sportRules.unitWinThreshold}</span>
       </div>
@@ -657,7 +671,7 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
           <button key={f} onClick={() => handleFormatChange(f)}
             className={cn(
               'px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-colors',
-              format === f ? 'bg-orange-500 text-white' : 'text-muted-foreground hover:text-foreground',
+              format === f ? cn(ui.bgSolid, 'text-white') : 'text-muted-foreground hover:text-foreground',
             )}>
             {FORMAT_CONFIGS[f].label}
           </button>
@@ -683,7 +697,8 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
               value={local[gn]?.s1 ?? ''} disabled={saving}
               onChange={e => handleChange(gn, 's1', e.target.value)}
               className={cn(
-                'w-full text-center text-sm font-bold py-1.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/40 [appearance:textfield]',
+                'w-full text-center text-sm font-bold py-1.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 [appearance:textfield]',
+                ui.focusRing,
                 !valid              ? 'border-red-400 bg-red-50/40 dark:bg-red-950/20' :
                 won && stored       ? 'border-emerald-400/50 bg-emerald-50/60 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' :
                                       'border-border bg-background',
@@ -704,7 +719,8 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
               value={local[gn]?.s2 ?? ''} disabled={saving}
               onChange={e => handleChange(gn, 's2', e.target.value)}
               className={cn(
-                'w-full text-center text-sm font-bold py-1.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500/40 [appearance:textfield]',
+                'w-full text-center text-sm font-bold py-1.5 rounded-lg border transition-colors focus:outline-none focus:ring-2 [appearance:textfield]',
+                ui.focusRing,
                 !valid              ? 'border-red-400 bg-red-50/40 dark:bg-red-950/20' :
                 won && stored       ? 'border-emerald-400/50 bg-emerald-50/60 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' :
                                       'border-border bg-background',
@@ -737,7 +753,7 @@ export function SingleMatchInlineScorer({ matchId, player1Name, player2Name, spo
         )}
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={handleSave} disabled={saving}
-            className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5">
+            className={cn('px-4 py-1.5 rounded-lg text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5', ui.bgSolid, ui.hoverBgSolid)}>
             {saving ? <span className="tt-spinner tt-spinner-sm" /> : <Check className="h-3 w-3" />}
             {saving ? 'Saving…' : 'Save Scores'}
           </button>

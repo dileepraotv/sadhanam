@@ -29,16 +29,16 @@ export default async function PublicTournamentPage({ params }: PageProps) {
       id, tournament_id, round, match_number,
       player1_id, player2_id, player1_games, player2_games,
       winner_id, status, round_name, stage_id, group_id, match_kind,
-      player1:player1_id(id,name,seed,club,country_code),
-      player2:player2_id(id,name,seed,club,country_code),
-      winner:winner_id(id,name,seed,club,country_code),
+      player1:player1_id(id,name,seed,club,country_code,partner_name),
+      player2:player2_id(id,name,seed,club,country_code,partner_name),
+      winner:winner_id(id,name,seed,club,country_code,partner_name),
       games(id,match_id,game_number,score1,score2,winner_id)
     `).eq('tournament_id', params.id).order('round').order('match_number'),
     supabase.from('stages')
       .select('*, rr_groups(id, stage_id, name, group_number, rr_group_members(player_id))')
       .eq('tournament_id', params.id).order('stage_number'),
     supabase.from('players')
-      .select('id,name,seed,club,country_code,tournament_id,created_at,updated_at')
+      .select('id,name,seed,club,country_code,tournament_id,created_at,updated_at,partner_name')
       .eq('tournament_id', params.id)
       .order('seed', { ascending: true, nullsFirst: false }),
   ])
