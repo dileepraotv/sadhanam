@@ -33,12 +33,24 @@ export const SPORT_CONFIG: Record<SportType, SportConfig> = {
     emoji: '🏸',
     color: 'text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-900/30 border-sky-200 dark:border-sky-800/60',
   },
+  carrom: {
+    label: 'Carrom',
+    emoji: '🎯',
+    color: 'text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800/60',
+  },
+  chess: {
+    label: 'Chess',
+    emoji: '♟️',
+    color: 'text-violet-700 dark:text-violet-300 bg-violet-100 dark:bg-violet-900/30 border-violet-200 dark:border-violet-800/60',
+  },
 }
 
 /** Solid accent color (for stripes/borders) — not a Tailwind class, a hex value. */
 export const SPORT_ACCENT: Record<SportType, string> = {
   table_tennis: '#F06321',
   badminton:    '#0EA5E9',
+  carrom:       '#D97706',
+  chess:        '#7C3AED',
 }
 
 export function SportBadge({ sportType, size = 'md', className }: SportBadgeProps) {
@@ -134,6 +146,36 @@ export const SPORT_UI: Record<SportType, SportUiClasses> = {
     bgSoft:       'bg-sky-200/60 dark:bg-sky-900/40',
     bgFaint:      'bg-sky-50/50 dark:bg-sky-950/10',
     focusRing:    'focus:ring-2 focus:ring-sky-400/40',
+  },
+  carrom: {
+    hex:          '#D97706',
+    bgSolid:      'bg-amber-500',
+    hoverBgSolid: 'hover:bg-amber-400',
+    text:         'text-amber-600 dark:text-amber-400',
+    bgLight:      'bg-amber-100 dark:bg-amber-900/40',
+    border:       'border-amber-400',
+    hoverBorder:  'hover:border-amber-400',
+    borderLight:  'border-amber-300 dark:border-amber-700/60',
+    ring:         'ring-amber-400',
+    ringSoft:     'ring-amber-400/20',
+    bgSoft:       'bg-amber-200/60 dark:bg-amber-900/40',
+    bgFaint:      'bg-amber-50/50 dark:bg-amber-950/10',
+    focusRing:    'focus:ring-2 focus:ring-amber-400/40',
+  },
+  chess: {
+    hex:          '#7C3AED',
+    bgSolid:      'bg-violet-500',
+    hoverBgSolid: 'hover:bg-violet-400',
+    text:         'text-violet-600 dark:text-violet-400',
+    bgLight:      'bg-violet-100 dark:bg-violet-900/40',
+    border:       'border-violet-400',
+    hoverBorder:  'hover:border-violet-400',
+    borderLight:  'border-violet-300 dark:border-violet-700/60',
+    ring:         'ring-violet-400',
+    ringSoft:     'ring-violet-400/20',
+    bgSoft:       'bg-violet-200/60 dark:bg-violet-900/40',
+    bgFaint:      'bg-violet-50/50 dark:bg-violet-950/10',
+    focusRing:    'focus:ring-2 focus:ring-violet-400/40',
   },
 }
 

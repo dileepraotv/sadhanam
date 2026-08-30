@@ -25,7 +25,7 @@ interface Props {
   events: ActiveEventRow[]
 }
 
-const SPORT_ORDER: SportType[] = ['table_tennis', 'badminton']
+const SPORT_ORDER: SportType[] = ['table_tennis', 'badminton', 'carrom', 'chess']
 
 export function EventGrid({ events }: Props) {
   const [filter, setFilter] = useState<SportFilter>('all')

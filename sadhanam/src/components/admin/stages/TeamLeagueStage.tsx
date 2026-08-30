@@ -1506,7 +1506,7 @@ function TeamKOBracketUI({
             matchBase={matchBase}
             tournamentId={tournamentId}
             isCorbillon={isCorbillon}
-            sport={tournament.sport_type}
+            sport={tournament.sport_type === 'badminton' ? 'badminton' : 'table_tennis'}
             highlightFix={highlightFix as string}
             loadData={loadData}
           />

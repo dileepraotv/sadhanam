@@ -3,6 +3,8 @@
  * All derived server-side from Supabase queries in page.tsx.
  */
 
+import type { SportType } from '@/lib/types'
+
 // Live match card displayed in the "Live Now" horizontal strip
 export interface LiveMatchRow {
   matchId:     string
@@ -42,7 +44,7 @@ export interface ActiveEventRow {
   champId:      string | null
   champName:    string | null
   formatType:   string | null   // 'single_knockout' | 'single_round_robin' | 'multi_rr_to_knockout'
-  sportType:    'table_tennis' | 'badminton'
+  sportType:    SportType
   status:       string
   stageLabel:   string          // human-readable current stage
   progress:     number          // 0–100

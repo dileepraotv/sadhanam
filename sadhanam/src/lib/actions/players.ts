@@ -27,12 +27,14 @@ export async function addPlayer(tournamentId: string, formData: FormData): Promi
   const club      = (formData.get('club') as string)?.trim() || null
   const seedRaw   = formData.get('seed') as string
   const groupRaw  = formData.get('preferred_group') as string
+  const partnerNameRaw = (formData.get('partner_name') as string)?.trim() || null
   const seed      = seedRaw ? parseInt(seedRaw, 10) : null
   const groupNum  = groupRaw ? parseInt(groupRaw, 10) : null
   const preferred_group = groupNum && Number.isInteger(groupNum) && groupNum >= 1 ? groupNum : null
 
   if (!name) return { error: 'Player name is required' }
   if (name.length < 2) return { error: 'Name must be at least 2 characters' }
+  if (partnerNameRaw !== null && partnerNameRaw.length < 2) return { error: 'Partner name must be at least 2 characters' }
 
   // Run duplicate checks in parallel
   const [seedCheck, nameCheck] = await Promise.all([
@@ -50,6 +52,7 @@ export async function addPlayer(tournamentId: string, formData: FormData): Promi
     club,
     seed: seed || null,
     preferred_group,
+    partner_name: partnerNameRaw,
   })
   if (error) return { error: error.message }
 

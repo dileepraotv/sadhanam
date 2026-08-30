@@ -33,8 +33,10 @@ import {
   deriveGameWinnerId,
   formatValidationErrors,
   filterGamesToSave,
+  validateCarromBoard,
+  computeCarromMatchState,
 } from '@/lib/scoring/engine'
-import { FORMAT_CONFIGS } from '@/lib/scoring/types'
+import { FORMAT_CONFIGS, SPORT_RULES } from '@/lib/scoring/types'
 
 // ── Shared: load match with its tournament format ─────────────────────────────
 async function loadMatchWithFormat(supabase: ReturnType<typeof createClient>, matchId: string) {
@@ -49,7 +51,7 @@ async function loadMatchWithFormat(supabase: ReturnType<typeof createClient>, ma
       next_match_id, next_slot, started_at,
       match_kind, match_format, round_name,
       bracket_side, loser_next_match_id, loser_next_slot,
-      tournament:tournaments ( id, format, status, championship_id, sport_type )
+      tournament:tournaments ( id, format, status, championship_id, sport_type, carrom_board_target, carrom_max_boards )
     `)
     .eq('id', matchId)
     .single()
@@ -66,7 +68,7 @@ async function loadMatchWithFormat(supabase: ReturnType<typeof createClient>, ma
         next_match_id, next_slot, started_at,
         match_kind, round_name,
         bracket_side, loser_next_match_id, loser_next_slot,
-        tournament:tournaments ( id, format, status, championship_id, sport_type )
+        tournament:tournaments ( id, format, status, championship_id, sport_type, carrom_board_target, carrom_max_boards )
       `)
       .eq('id', matchId)
       .single()
@@ -83,7 +85,8 @@ async function loadMatchWithFormat(supabase: ReturnType<typeof createClient>, ma
  *  once migration v12 has run). */
 function getSportType(match: { tournament: unknown }): SportType {
   const t = match.tournament as { sport_type?: SportType } | null
-  return t?.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
+  const valid: SportType[] = ['table_tennis', 'badminton', 'carrom', 'chess']
+  return valid.includes(t?.sport_type as SportType) ? (t!.sport_type as SportType) : 'table_tennis'
 }
 
 /** Revalidate all paths affected by a match score change (Fix: covers championship event pages) */
@@ -106,11 +109,216 @@ function revalidateMatchPaths(
 async function loadGames(supabase: ReturnType<typeof createClient>, matchId: string): Promise<Game[]> {
   const { data, error } = await supabase
     .from('games')
-    .select('id, match_id, game_number, score1, score2, winner_id, created_at, updated_at')
+    .select('id, match_id, game_number, score1, score2, winner_id, is_draw, created_at, updated_at')
     .eq('match_id', matchId)
     .order('game_number', { ascending: true })
   if (error) throw new Error(error.message)
   return (data ?? []) as unknown as Game[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared: propagate a completed match's winner through the bracket.
+// Mirrors the inline logic in saveGameScore/bulkSaveGameScores (steps 9b-9c)
+// so chess/carrom's single-shot save functions get the same bracket-advance,
+// DE/bronze loser-routing, and tournament-completion behavior for free.
+// ─────────────────────────────────────────────────────────────────────────────
+async function propagateMatchCompletion(
+  supabase: ReturnType<typeof createClient>,
+  matchId: string,
+  match: {
+    tournament_id: string
+    next_match_id: string | null
+    next_slot: 1 | 2 | null
+    match_kind?: string | null
+    round_name: string | null
+    bracket_side?: string | null
+    loser_next_match_id?: string | null
+    loser_next_slot?: number | null
+    player1_id: string | null
+    player2_id: string | null
+  },
+  matchWinnerId: string | null,
+): Promise<{ error?: string }> {
+  if (!matchWinnerId) return {}
+
+  if (match.next_match_id) {
+    const col = match.next_slot === 1 ? 'player1_id' : 'player2_id'
+    const { error } = await supabase.from('matches').update({ [col]: matchWinnerId }).eq('id', match.next_match_id)
+    if (error) return { error: `Match complete but bracket advance failed: ${error.message}. Please refresh and try again.` }
+  }
+
+  const routeLoser = match.bracket_side === 'winners' || match.bracket_side == null
+  if (routeLoser && match.loser_next_match_id) {
+    const loserId = match.player1_id === matchWinnerId ? match.player2_id : match.player1_id
+    if (loserId) {
+      const col = match.loser_next_slot === 1 ? 'player1_id' : 'player2_id'
+      const { error } = await supabase.from('matches').update({ [col]: loserId }).eq('id', match.loser_next_match_id)
+      if (error) return { error: `Match complete but Losers Bracket routing failed: ${error.message}. Please refresh and try again.` }
+    }
+  }
+
+  if (match.bracket_side === 'grand_final') {
+    const { advanceDEPlayers } = await import('./doubleElimination')
+    await advanceDEPlayers(matchId, match.tournament_id)
+    return {}
+  }
+
+  if (!match.next_match_id && match.match_kind !== 'round_robin' && match.round_name !== '3rd Place') {
+    await supabase.from('tournaments').update({ status: 'complete' }).eq('id', match.tournament_id)
+  }
+  return {}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// saveChessResult — chess is scored as a single decisive game (Win/Draw/Loss),
+// not point-by-point, so it gets its own save path rather than being forced
+// through the rally-oriented saveGameScore/bulkSaveGameScores.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function saveChessResult(
+  matchId: string,
+  outcome: 'player1_wins' | 'draw' | 'player2_wins',
+): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = createClient()
+
+  let match: Awaited<ReturnType<typeof loadMatchWithFormat>>
+  try {
+    match = await loadMatchWithFormat(supabase, matchId)
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+
+  const p1 = match.player1_id
+  const p2 = match.player2_id
+  if (!p1 || !p2) return { success: false, error: 'Both players must be assigned before entering a result.' }
+  if (match.status === 'complete') return { success: false, error: 'This match is already complete. Delete the result first to make a correction.' }
+
+  const isDraw = outcome === 'draw'
+  const winnerId = isDraw ? null : outcome === 'player1_wins' ? p1 : p2
+
+  const { error: upsertErr } = await supabase
+    .from('games')
+    .upsert({ match_id: matchId, game_number: 1, score1: null, score2: null, winner_id: winnerId, is_draw: isDraw }, { onConflict: 'match_id,game_number' })
+  if (upsertErr) return { success: false, error: upsertErr.message }
+
+  const { error: matchUpdateErr } = await supabase
+    .from('matches')
+    .update({
+      player1_games: isDraw ? 0 : (winnerId === p1 ? 1 : 0),
+      player2_games: isDraw ? 0 : (winnerId === p2 ? 1 : 0),
+      winner_id:     winnerId,
+      is_draw:       isDraw,
+      status:        'complete',
+      started_at:    match.started_at ?? new Date().toISOString(),
+      completed_at:  new Date().toISOString(),
+    })
+    .eq('id', matchId)
+  if (matchUpdateErr) return { success: false, error: matchUpdateErr.message }
+
+  const propResult = await propagateMatchCompletion(supabase, matchId, match, winnerId)
+  if (propResult.error) return { success: false, error: propResult.error }
+
+  void supabase.auth.getUser().then(({ data }: { data: { user: { id: string } | null } }) => {
+    if (data.user) {
+      void supabase.from('audit_log').insert({
+        actor_id: data.user.id, action: 'save_chess_result', table_name: 'games',
+        record_id: matchId, new_data: { outcome, winner_id: winnerId },
+      })
+    }
+  })
+
+  const champId = (match.tournament as unknown as { championship_id: string | null }).championship_id
+  revalidateMatchPaths(match.tournament_id, matchId, champId)
+  return { success: true }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// saveCarromBoard — a carrom "board" is winner-take-all points (0-12), and the
+// match is decided by cumulative points reaching the tournament's configured
+// target over a capped number of boards — not "best of N boards won". This
+// gets its own save path with its own completion logic (computeCarromMatchState).
+// ─────────────────────────────────────────────────────────────────────────────
+export async function saveCarromBoard(
+  matchId:      string,
+  boardNumber:  number,
+  winner:       'player1' | 'player2',
+  points:       number,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = createClient()
+
+  let match: Awaited<ReturnType<typeof loadMatchWithFormat>>
+  let existingGames: Game[]
+  try {
+    ;[match, existingGames] = await Promise.all([
+      loadMatchWithFormat(supabase, matchId),
+      loadGames(supabase, matchId),
+    ])
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+
+  const p1 = match.player1_id
+  const p2 = match.player2_id
+  if (!p1 || !p2) return { success: false, error: 'Both players must be assigned before entering board scores.' }
+  if (match.status === 'complete') {
+    const isEdit = existingGames.some(g => g.game_number === boardNumber)
+    if (!isEdit) return { success: false, error: 'This match is already complete. Delete a board first to make a correction.' }
+  }
+
+  const score1 = winner === 'player1' ? points : 0
+  const score2 = winner === 'player2' ? points : 0
+  const boardValidation = validateCarromBoard({ score1, score2 }, SPORT_RULES.carrom)
+  if (!boardValidation.ok) return { success: false, error: formatValidationErrors(boardValidation) }
+
+  const boardWinnerId = winner === 'player1' ? p1 : p2
+  const { error: upsertErr } = await supabase
+    .from('games')
+    .upsert({ match_id: matchId, game_number: boardNumber, score1, score2, winner_id: boardWinnerId }, { onConflict: 'match_id,game_number' })
+  if (upsertErr) return { success: false, error: upsertErr.message }
+
+  const allGames: Game[] = [
+    ...existingGames.filter(g => g.game_number !== boardNumber),
+    { game_number: boardNumber, score1, score2, winner_id: boardWinnerId, match_id: matchId } as unknown as Game,
+  ].sort((a, b) => a.game_number - b.game_number)
+
+  const tournamentCfg = match.tournament as unknown as { carrom_board_target?: number; carrom_max_boards?: number }
+  const matchState = computeCarromMatchState(allGames, tournamentCfg, p1, p2)
+  const matchWinnerId: string | null =
+    matchState.outcome === 'player1_wins' ? p1 :
+    matchState.outcome === 'player2_wins' ? p2 :
+    null
+  const isMatchComplete = !!matchWinnerId
+  const newStatus = isMatchComplete ? 'complete' : (allGames.length > 0 ? 'live' : 'pending')
+
+  const { error: matchUpdateErr } = await supabase
+    .from('matches')
+    .update({
+      player1_games: matchState.player1Games,
+      player2_games: matchState.player2Games,
+      winner_id:     matchWinnerId,
+      status:        newStatus,
+      started_at:    match.started_at ?? new Date().toISOString(),
+      completed_at:  isMatchComplete ? new Date().toISOString() : null,
+    })
+    .eq('id', matchId)
+  if (matchUpdateErr) return { success: false, error: matchUpdateErr.message }
+
+  if (isMatchComplete) {
+    const propResult = await propagateMatchCompletion(supabase, matchId, match, matchWinnerId)
+    if (propResult.error) return { success: false, error: propResult.error }
+  }
+
+  void supabase.auth.getUser().then(({ data }: { data: { user: { id: string } | null } }) => {
+    if (data.user) {
+      void supabase.from('audit_log').insert({
+        actor_id: data.user.id, action: 'save_carrom_board', table_name: 'games',
+        record_id: matchId, new_data: { board_number: boardNumber, winner, points, match_status: newStatus },
+      })
+    }
+  })
+
+  const champId = (match.tournament as unknown as { championship_id: string | null }).championship_id
+  revalidateMatchPaths(match.tournament_id, matchId, champId)
+  return { success: true }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -386,6 +594,90 @@ export async function deleteGameScore(
     await supabase.from('audit_log').insert({
       actor_id: user.id, action: 'delete_game_score', table_name: 'games',
       record_id: matchId, new_data: { game_number: gameNumber, reverted_to: newStatus },
+    })
+  }
+
+  const champId = (match.tournament as unknown as { championship_id: string | null }).championship_id
+  revalidateMatchPaths(match.tournament_id, matchId, champId)
+
+  return { success: true }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// deleteCarromBoard — mirrors deleteGameScore, but recomputes via
+// computeCarromMatchState (cumulative points to target) instead of the
+// rally engine's "best of N games" logic, which would give wrong results
+// for carrom's board-based completion rule.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function deleteCarromBoard(
+  matchId:     string,
+  boardNumber: number,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const supabase = createClient()
+
+  let match: Awaited<ReturnType<typeof loadMatchWithFormat>>
+  try {
+    match = await loadMatchWithFormat(supabase, matchId)
+  } catch (e) {
+    return { success: false, error: (e as Error).message }
+  }
+
+  const player1Id          = match.player1_id
+  const player2Id          = match.player2_id
+  const previouslyComplete = match.status === 'complete'
+  const previousWinnerId   = match.winner_id
+
+  const { error: delErr } = await supabase
+    .from('games')
+    .delete()
+    .eq('match_id', matchId)
+    .eq('game_number', boardNumber)
+  if (delErr) return { success: false, error: delErr.message }
+
+  const remainingGames = await loadGames(supabase, matchId)
+  const tournamentCfg = match.tournament as unknown as { carrom_board_target?: number; carrom_max_boards?: number }
+  const matchState = computeCarromMatchState(remainingGames, tournamentCfg, player1Id, player2Id)
+
+  const newWinnerId: string | null =
+    matchState.outcome === 'player1_wins' ? player1Id :
+    matchState.outcome === 'player2_wins' ? player2Id :
+    null
+
+  const newStatus = newWinnerId ? 'complete' : (remainingGames.length > 0 ? 'live' : 'pending')
+
+  await supabase.from('matches').update({
+    player1_games: matchState.player1Games,
+    player2_games: matchState.player2Games,
+    winner_id:     newWinnerId,
+    status:        newStatus,
+    completed_at:  newWinnerId ? new Date().toISOString() : null,
+  }).eq('id', matchId)
+
+  if (previouslyComplete && previousWinnerId && match.next_match_id && newWinnerId !== previousWinnerId) {
+    const { data: nextMatch } = await supabase
+      .from('matches')
+      .select('id, player1_id, player2_id, status, next_match_id, winner_id')
+      .eq('id', match.next_match_id)
+      .single()
+
+    if (nextMatch && nextMatch.status !== 'complete') {
+      const wasInSlot1 = nextMatch.player1_id === previousWinnerId
+      const col        = wasInSlot1 ? 'player1_id' : 'player2_id'
+      await supabase.from('matches').update({ [col]: newWinnerId ?? null }).eq('id', match.next_match_id)
+    } else if (nextMatch && nextMatch.status === 'complete') {
+      return {
+        success: false,
+        error:   'This match result has already progressed to a completed downstream match. ' +
+                 'Please correct the downstream match first before editing this board.',
+      }
+    }
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) {
+    await supabase.from('audit_log').insert({
+      actor_id: user.id, action: 'delete_carrom_board', table_name: 'games',
+      record_id: matchId, new_data: { board_number: boardNumber, reverted_to: newStatus },
     })
   }
 

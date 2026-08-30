@@ -53,6 +53,16 @@ export function getSeedLabel(seed: number | null): string {
   return `[${seed}]`
 }
 
+/**
+ * Display name for a player row — appends the partner's name for a carrom
+ * doubles pair (see migration v14: players.partner_name). Every other sport
+ * leaves partner_name null, so this is a no-op everywhere else.
+ */
+export function playerDisplayName(player?: { name: string; partner_name?: string | null } | null): string {
+  if (!player) return 'TBD'
+  return player.partner_name ? `${player.name} / ${player.partner_name}` : player.name
+}
+
 export function isByeOrEmpty(playerId: string | null, isBye?: boolean): boolean {
   return !playerId || !!isBye
 }

@@ -11,10 +11,15 @@ import type { MatchFormat, SportType } from '@/lib/types'
 // GAME SCORE INPUT
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Raw integers coming from the admin's score entry form. */
+/** Raw integers coming from the admin's score entry form (rally + board sports). */
 export interface GameScoreInput {
-  score1:     number   // points for player 1
-  score2:     number   // points for player 2
+  score1:     number   // points for player 1 (rally sports) / board points won by player 1 (carrom, 0 if they lost the board)
+  score2:     number   // points for player 2 (rally sports) / board points won by player 2 (carrom, 0 if they lost the board)
+}
+
+/** Chess-only: a game has no point tally, just a result. */
+export interface ChessResultInput {
+  outcome: 'player1_wins' | 'draw' | 'player2_wins'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -60,14 +65,15 @@ export type ValidationResult =
 // GAME STATE (outcome of a single game)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type GameOutcome = 'player1_wins' | 'player2_wins'
+export type GameOutcome = 'player1_wins' | 'player2_wins' | 'draw'
 
 export interface ComputedGame {
   gameNumber: number
   score1:     number
   score2:     number
   outcome:    GameOutcome
-  isDeuce:    boolean   // both players reached 10+ and margin = 2
+  isDeuce:    boolean   // both players reached 10+ and margin = 2 (rally sports only)
+  isDraw?:    boolean   // chess only — a decided, drawn game (not "not yet played")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,6 +84,7 @@ export type MatchOutcome =
   | 'in_progress'    // match still going
   | 'player1_wins'   // player 1 reached gamesNeeded first
   | 'player2_wins'   // player 2 reached gamesNeeded first
+  | 'draw'           // chess only — the single decisive game was drawn
 
 export interface ComputedMatchState {
   /** Games won by player 1 so far. */
@@ -98,6 +105,13 @@ export interface ComputedMatchState {
    * 0 when the match is complete.
    */
   gamesRemaining: number
+  /**
+   * Carrom only — cumulative board points per side (sum of games.score1/score2),
+   * used to decide the match against the tournament's carrom_board_target
+   * instead of counting boards won. Undefined for rally/result sports.
+   */
+  player1Points?: number
+  player2Points?: number
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,24 +157,48 @@ export const FORMAT_CONFIGS: Record<MatchFormat, FormatConfig> = {
 // sport's rule set (see validateGameScore in engine.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * How a "game"/"board" is scored and how a match is decided, per sport:
+ *   'rally'  — two-sided race to a point threshold, win-by-2, best-of-N games
+ *              won decides the match (table tennis, badminton).
+ *   'result' — a game is Win/Draw/Loss, no point tally at all; the match is
+ *              (for now, per product decision) a single decisive game (chess).
+ *   'board'  — one side scores 0-maxPointsPerBoard per board (the winner
+ *              earns the value of the loser's remaining pieces); the match is
+ *              decided by cumulative points reaching a target over a capped
+ *              number of boards, not by "boards won count" (carrom).
+ */
+export type ScoringModel = 'rally' | 'result' | 'board'
+
 export interface SportRuleSet {
-  /** Display label for one scoring unit — 'Game' today; future sports may use 'Set'. */
+  /** Display label for one scoring unit — 'Game' (TT/badminton/chess) or 'Board' (carrom). */
   unitLabel:        string
+  scoringModel:     ScoringModel
+  // ── 'rally' fields (table tennis, badminton) ──────────────────────────────
   /** Points needed to win a game outright (no deuce required). TT: 11, Badminton: 21. */
-  unitWinThreshold: number
+  unitWinThreshold?: number
   /** Score at which deuce (win-by-2) rules kick in. TT: 10, Badminton: 20. */
-  deuceAt:          number
+  deuceAt?:          number
   /**
    * Hard cap on game score — reaching this value wins outright even with only
    * a 1-point margin (BWF cap rule: 30-29 is a valid final score).
    * Undefined = no cap (table tennis plays to win-by-2 indefinitely).
    */
   maxPoints?:       number
+  // ── 'board' fields (carrom) — defaults only; the tournament's own
+  // carrom_board_target / carrom_queen_value / carrom_max_boards columns
+  // (organizer-configurable per event) always take precedence at runtime. ──
+  boardTarget?:        number   // ICF default: 25 (club variant: 29)
+  queenValue?:         number   // ICF default: 3  (club variant: 5)
+  maxPointsPerBoard?:  number   // ICF cap: 12 (queen + up to 9 coins)
+  maxBoards?:          number   // ICF default: 8 (club variant: 4)
 }
 
 export const SPORT_RULES: Record<SportType, SportRuleSet> = {
-  table_tennis: { unitLabel: 'Game', unitWinThreshold: 11, deuceAt: 10 },
-  badminton:    { unitLabel: 'Game', unitWinThreshold: 21, deuceAt: 20, maxPoints: 30 },
+  table_tennis: { unitLabel: 'Game',  scoringModel: 'rally',  unitWinThreshold: 11, deuceAt: 10 },
+  badminton:    { unitLabel: 'Game',  scoringModel: 'rally',  unitWinThreshold: 21, deuceAt: 20, maxPoints: 30 },
+  carrom:       { unitLabel: 'Board', scoringModel: 'board',  boardTarget: 25, queenValue: 3, maxPointsPerBoard: 12, maxBoards: 8 },
+  chess:        { unitLabel: 'Game',  scoringModel: 'result' },
 }
 
 export const DEFAULT_SPORT: SportType = 'table_tennis'

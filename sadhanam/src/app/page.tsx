@@ -25,6 +25,7 @@ import type {
   OngoingChampRow,
   ActiveEventRow,
   RecentResultRow,
+  SportType,
 } from '@/lib/types'
 
 export const revalidate = 15
@@ -214,7 +215,7 @@ async function getHomeData(userId: string | null) {
       champId:      ev.championship_id ?? null,
       champName:    champ?.name ?? null,
       formatType:   ev.format_type ?? null,
-      sportType:    (ev as unknown as { sport_type?: 'table_tennis' | 'badminton' }).sport_type ?? 'table_tennis',
+      sportType:    (ev as unknown as { sport_type?: SportType }).sport_type ?? 'table_tennis',
       status:       ev.status,
       stageLabel:   deriveStageLabel(ev),
       progress,

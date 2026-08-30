@@ -12,10 +12,9 @@ import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toaster'
 import { cn } from '@/lib/utils'
 import { sportUi } from '@/components/shared/SportBadge'
+import type { SportType } from '@/lib/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type SportType = 'table_tennis' | 'badminton'
 
 type FormatType =
   | 'single_knockout'
@@ -72,7 +71,7 @@ interface FormatOption {
 
 const FORMAT_OPTIONS: FormatOption[] = [
   {
-    value: 'single_knockout', category: 'singles', sports: ['table_tennis', 'badminton'],
+    value: 'single_knockout', category: 'singles', sports: ['table_tennis', 'badminton', 'carrom', 'chess'],
     icon: <Swords className="h-4 w-4" />,
     label: 'Knockout',
     tagline: 'Single-elimination bracket',
@@ -81,7 +80,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Knockout',
   },
   {
-    value: 'pure_round_robin', category: 'singles', sports: ['table_tennis', 'badminton'],
+    value: 'pure_round_robin', category: 'singles', sports: ['table_tennis', 'badminton', 'carrom', 'chess'],
     icon: <RotateCcw className="h-4 w-4" />,
     label: 'Round Robin',
     tagline: 'Everyone plays everyone',
@@ -90,7 +89,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Round Robin',
   },
   {
-    value: 'double_elimination', category: 'singles', sports: ['table_tennis', 'badminton'],
+    value: 'double_elimination', category: 'singles', sports: ['table_tennis', 'badminton', 'carrom', 'chess'],
     icon: <GitBranch className="h-4 w-4" />,
     label: 'Double Elimination',
     tagline: 'Two losses to be knocked out',
@@ -99,7 +98,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Double Elimination',
   },
   {
-    value: 'single_round_robin', category: 'singles', sports: ['table_tennis', 'badminton'],
+    value: 'single_round_robin', category: 'singles', sports: ['table_tennis', 'badminton', 'carrom', 'chess'],
     icon: <Users className="h-4 w-4" />,
     label: 'Round Robin + Knockout',
     tagline: 'Round-robin groups then knockout',
@@ -108,7 +107,7 @@ const FORMAT_OPTIONS: FormatOption[] = [
     defaultName: 'Singles - Round Robin + Knockout',
   },
   {
-    value: 'multi_rr_to_knockout', category: 'singles', sports: ['table_tennis', 'badminton'],
+    value: 'multi_rr_to_knockout', category: 'singles', sports: ['table_tennis', 'badminton', 'carrom', 'chess'],
     icon: <Layers className="h-4 w-4" />,
     label: 'Round Robin + Knockout (Flexible)',
     tagline: 'Top N across all groups advance',
@@ -228,6 +227,18 @@ export function NewEventForm({ cid, createAction }: Props) {
   const [date,        setDate]            = useState(today)
   const [activeTab,   setActiveTab]       = useState<Category>('singles')
   const [busy,        setBusy]            = useState(false)
+  // Carrom-only config — organizer-configurable per event (see migration v14)
+  const [isDoubles,        setIsDoubles]       = useState(false)
+  const [carromPreset,     setCarromPreset]    = useState<'icf25' | 'club29' | 'custom'>('icf25')
+  const [carromBoardTarget,setCarromBoardTarget] = useState(25)
+  const [carromQueenValue, setCarromQueenValue]  = useState(3)
+  const [carromMaxBoards,  setCarromMaxBoards]   = useState(8)
+
+  const applyCarromPreset = (preset: 'icf25' | 'club29' | 'custom') => {
+    setCarromPreset(preset)
+    if (preset === 'icf25') { setCarromBoardTarget(25); setCarromQueenValue(3); setCarromMaxBoards(8) }
+    else if (preset === 'club29') { setCarromBoardTarget(29); setCarromQueenValue(5); setCarromMaxBoards(4) }
+  }
   const { setLoading } = useLoading()
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -284,16 +295,26 @@ export function NewEventForm({ cid, createAction }: Props) {
       <input type="hidden" name="name"        value={name} />
       <input type="hidden" name="format_type" value={formatType ?? ''} />
       <input type="hidden" name="sport_type"  value={sport ?? ''} />
-      <input type="hidden" name="format"      value={sport === 'badminton' ? 'bo3' : 'bo5'} />
+      <input type="hidden" name="format"      value={sport === 'badminton' ? 'bo3' : sport === 'chess' ? 'bo1' : 'bo5'} />
+      {sport === 'carrom' && (
+        <>
+          <input type="hidden" name="is_doubles" value={isDoubles ? 'true' : 'false'} />
+          <input type="hidden" name="carrom_board_target" value={carromBoardTarget} />
+          <input type="hidden" name="carrom_queen_value" value={carromQueenValue} />
+          <input type="hidden" name="carrom_max_boards" value={carromMaxBoards} />
+        </>
+      )}
 
       {/* ── Sport selector ─────────────────────────────────────────────── */}
       <div className="mb-4 flex flex-col gap-1.5">
         <p className="text-xs font-semibold text-muted-foreground">
           Sport <span className="text-destructive">*</span>
         </p>
-        <div className="flex items-center gap-2">
-          {(['table_tennis', 'badminton'] as SportType[]).map(s => {
+        <div className="flex flex-wrap items-center gap-2">
+          {(['table_tennis', 'badminton', 'carrom', 'chess'] as SportType[]).map(s => {
             const sUi = sportUi(s)
+            const emoji = s === 'badminton' ? '🏸' : s === 'carrom' ? '🎯' : s === 'chess' ? '♟️' : '🏓'
+            const sLabel = s === 'badminton' ? 'Badminton' : s === 'carrom' ? 'Carrom' : s === 'chess' ? 'Chess' : 'Table Tennis'
             return (
               <button key={s} type="button"
                 onClick={() => handleSelectSport(s)}
@@ -304,8 +325,8 @@ export function NewEventForm({ cid, createAction }: Props) {
                     : `border-border bg-card text-muted-foreground ${sUi.hoverBorder} hover:text-foreground`,
                 )}
               >
-                <span className="text-base">{s === 'badminton' ? '🏸' : '🏓'}</span>
-                {s === 'badminton' ? 'Badminton' : 'Table Tennis'}
+                <span className="text-base">{emoji}</span>
+                {sLabel}
               </button>
             )
           })}
@@ -315,10 +336,10 @@ export function NewEventForm({ cid, createAction }: Props) {
       {/* ── Choose a sport first — formats depend on it ──────────────────── */}
       {!sport ? (
         <div className="rounded-2xl border-2 border-dashed border-border bg-muted/20 px-6 py-16 flex flex-col items-center justify-center gap-2 text-center">
-          <span className="text-3xl">🏓 · 🏸</span>
+          <span className="text-3xl">🏓 · 🏸 · 🎯 · ♟️</span>
           <p className="font-bold text-foreground">Choose a sport to continue</p>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Select Table Tennis or Badminton above to see the available formats and scoring rules.
+            Select a sport above to see the available formats and scoring rules.
           </p>
           <Button type="button" variant="outline" size="sm" className="mt-2" asChild>
             <Link href={`/admin/championships/${cid}`}>Cancel</Link>
@@ -427,7 +448,10 @@ export function NewEventForm({ cid, createAction }: Props) {
                 <div key={i} className="flex items-start gap-2">
                   <ArrowRight className={cn('h-3.5 w-3.5 mt-0.5 shrink-0', accent.text)} />
                   <span className="text-xs text-muted-foreground leading-snug">
-                    {sport === 'badminton' ? b.replace('Best of 5 per match', 'Best of 3, race to 21') : b}
+                    {sport === 'badminton' ? b.replace('Best of 5 per match', 'Best of 3, race to 21')
+                      : sport === 'chess'   ? b.replace('Best of 5 per match', 'One decisive game per match (Win / Draw / Loss)')
+                      : sport === 'carrom'  ? b.replace('Best of 5 per match', 'Race to target points over capped boards')
+                      : b}
                   </span>
                 </div>
               ))}
@@ -471,6 +495,75 @@ export function NewEventForm({ cid, createAction }: Props) {
                 className="flex h-10 w-full rounded-lg border-2 border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-orange-400/40 transition-colors"
               />
             </div>
+
+            {/* Carrom-only: singles/doubles + board scoring config */}
+            {sport === 'carrom' && (
+              <div className="flex flex-col gap-4 rounded-xl border-2 border-dashed border-border p-4">
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground">Entrants</p>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setIsDoubles(false)}
+                      className={cn('flex-1 px-3 py-2 rounded-lg border-2 text-sm font-semibold transition-all',
+                        !isDoubles ? `${accent.border} ${accent.bgLight} ${accent.text}` : 'border-border text-muted-foreground hover:text-foreground')}>
+                      Singles
+                    </button>
+                    <button type="button" onClick={() => setIsDoubles(true)}
+                      className={cn('flex-1 px-3 py-2 rounded-lg border-2 text-sm font-semibold transition-all',
+                        isDoubles ? `${accent.border} ${accent.bgLight} ${accent.text}` : 'border-border text-muted-foreground hover:text-foreground')}>
+                      Doubles (2 per side)
+                    </button>
+                  </div>
+                  {isDoubles && (
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      Each entrant will be registered as a pair (e.g. &ldquo;Alice K. / Bob R.&rdquo;) — collect both names when adding players.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground">Board scoring</p>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => applyCarromPreset('icf25')}
+                      className={cn('flex-1 px-3 py-2 rounded-lg border-2 text-xs font-semibold transition-all text-left',
+                        carromPreset === 'icf25' ? `${accent.border} ${accent.bgLight} ${accent.text}` : 'border-border text-muted-foreground hover:text-foreground')}>
+                      ICF Official<br /><span className="font-normal">25 pts · 8 boards · Queen 3</span>
+                    </button>
+                    <button type="button" onClick={() => applyCarromPreset('club29')}
+                      className={cn('flex-1 px-3 py-2 rounded-lg border-2 text-xs font-semibold transition-all text-left',
+                        carromPreset === 'club29' ? `${accent.border} ${accent.bgLight} ${accent.text}` : 'border-border text-muted-foreground hover:text-foreground')}>
+                      Club Variant<br /><span className="font-normal">29 pts · 4 boards · Queen 5</span>
+                    </button>
+                    <button type="button" onClick={() => applyCarromPreset('custom')}
+                      className={cn('flex-1 px-3 py-2 rounded-lg border-2 text-xs font-semibold transition-all text-left',
+                        carromPreset === 'custom' ? `${accent.border} ${accent.bgLight} ${accent.text}` : 'border-border text-muted-foreground hover:text-foreground')}>
+                      Custom<br /><span className="font-normal">Set your own values</span>
+                    </button>
+                  </div>
+                  {carromPreset === 'custom' && (
+                    <div className="grid grid-cols-3 gap-2 mt-1">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] text-muted-foreground">Target points</span>
+                        <input type="number" min={1} max={99} value={carromBoardTarget}
+                          onChange={e => setCarromBoardTarget(Number(e.target.value))}
+                          className="h-9 rounded-lg border-2 border-border bg-background px-2 text-sm" />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] text-muted-foreground">Queen value</span>
+                        <input type="number" min={1} max={10} value={carromQueenValue}
+                          onChange={e => setCarromQueenValue(Number(e.target.value))}
+                          className="h-9 rounded-lg border-2 border-border bg-background px-2 text-sm" />
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-[10px] text-muted-foreground">Max boards</span>
+                        <input type="number" min={1} max={20} value={carromMaxBoards}
+                          onChange={e => setCarromMaxBoards(Number(e.target.value))}
+                          className="h-9 rounded-lg border-2 border-border bg-background px-2 text-sm" />
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Actions pinned to bottom */}

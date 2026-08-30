@@ -11,7 +11,7 @@
  *   Declared   → "Admin-declared result" note shown instead of game chips
  */
 
-import { cn } from '@/lib/utils'
+import { cn, playerDisplayName } from '@/lib/utils'
 import type { Match, Game, SportType } from '@/lib/types'
 import {
   WinnerTrophy,
@@ -161,7 +161,7 @@ function PlayerRow({
   compact:   boolean
   winnerRowCls: string
 }) {
-  const name    = player?.name ?? 'TBD'
+  const name    = playerDisplayName(player)
   const isEmpty = !player?.name
 
   return (

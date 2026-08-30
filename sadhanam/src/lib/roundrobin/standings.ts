@@ -48,6 +48,7 @@ interface PlayerAccumulator {
   matchesPlayed:    number
   wins:             number
   losses:           number
+  draws:            number
   gamesWon:         number
   gamesLost:        number
   pointsScored:     number
@@ -65,6 +66,7 @@ function emptyAccumulator(player: {
     matchesPlayed:   0,
     wins:            0,
     losses:          0,
+    draws:           0,
     gamesWon:        0,
     gamesLost:       0,
     pointsScored:    0,
@@ -129,15 +131,18 @@ export function computeGroupStandings(
     p1.matchesPlayed++
     p2.matchesPlayed++
 
-    // Match winner
+    // Match winner (or draw — chess only; is_draw is false/undefined for every other sport)
     if (m.winner_id === m.player1_id) {
       p1.wins++
       p2.losses++
     } else if (m.winner_id === m.player2_id) {
       p2.wins++
       p1.losses++
+    } else if (m.is_draw) {
+      p1.draws++
+      p2.draws++
     }
-    // No winner (shouldn't happen for 'complete', but guards against bad data)
+    // No winner and not a draw (shouldn't happen for 'complete', but guards against bad data)
 
     // Game counts (stored directly on the match row, same as knockout)
     p1.gamesWon   += m.player1_games
@@ -160,6 +165,7 @@ export function computeGroupStandings(
   // Convert accumulators to standings, then sort + rank
   const unsorted: PlayerStanding[] = [...acc.values()].map(a => ({
     ...a,
+    points:            a.wins + a.draws * 0.5,
     gameDifference:    a.gamesWon  - a.gamesLost,
     pointsDifference:  a.pointsScored - a.pointsConceded,
     rank:              0,      // set after sort
@@ -214,10 +220,11 @@ function sortStandings(
   standings:         PlayerStanding[],
   completedMatches:  Match[],
 ): PlayerStanding[] {
-  // Step 1 — primary sort by wins
-  const sorted = [...standings].sort((a, b) => b.wins - a.wins)
+  // Step 1 — primary sort by match points (wins + draws*0.5). Identical to
+  // sorting by wins for every sport without draws (points === wins there).
+  const sorted = [...standings].sort((a, b) => b.points - a.points)
 
-  // Step 2 — identify groups of players with equal wins and apply tiebreakers
+  // Step 2 — identify groups of players with equal points and apply tiebreakers
   // We rebuild the array segment by segment.
   const result: PlayerStanding[] = []
   let i = 0
@@ -225,7 +232,7 @@ function sortStandings(
   while (i < sorted.length) {
     // Find end of this tied group
     let j = i + 1
-    while (j < sorted.length && sorted[j].wins === sorted[i].wins) j++
+    while (j < sorted.length && sorted[j].points === sorted[i].points) j++
 
     const tiedGroup = sorted.slice(i, j)
 
@@ -363,7 +370,7 @@ export function getTiebreakerReason(
   lower:            PlayerStanding,
   completedMatches: Match[],
 ): TiebreakerReason {
-  if (higher.wins !== lower.wins) return 'wins'
+  if (higher.points !== lower.points) return 'wins'
 
   // Check H2H (only meaningful to report if wins are tied)
   const h2h = headToHeadWinner(higher.playerId, lower.playerId, completedMatches)

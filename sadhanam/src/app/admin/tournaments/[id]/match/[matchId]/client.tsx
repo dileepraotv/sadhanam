@@ -19,12 +19,17 @@ import type { MatchFormat } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui/index'
 import { LiveBadge } from '@/components/shared/LiveBadge'
-import { saveGameScore, bulkSaveGameScores, deleteGameScore, declareMatchWinner, updateMatchFormat } from '@/lib/actions/matches'
+import {
+  saveGameScore, bulkSaveGameScores, deleteGameScore, declareMatchWinner, updateMatchFormat,
+  saveChessResult, saveCarromBoard, deleteCarromBoard,
+} from '@/lib/actions/matches'
 import { toast } from '@/components/ui/toaster'
-import { cn } from '@/lib/utils'
+import { cn, playerDisplayName } from '@/lib/utils'
 import {
   validateGameScore,
   computeMatchState,
+  computeChessMatchState,
+  computeCarromMatchState,
   inferGameNumbersToShow,
 } from '@/lib/scoring/engine'
 import { FORMAT_CONFIGS, SPORT_RULES } from '@/lib/scoring/types'
@@ -138,13 +143,20 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
   }
 
   const cfg        = FORMAT_CONFIGS[activeFormat as keyof typeof FORMAT_CONFIGS] ?? FORMAT_CONFIGS.bo5
-  const sport: SportType = tournament.sport_type === 'badminton' ? 'badminton' : 'table_tennis'
+  const sport: SportType = (['badminton', 'carrom', 'chess'] as SportType[]).includes(tournament.sport_type as SportType)
+    ? (tournament.sport_type as SportType) : 'table_tennis'
+  const isChess  = sport === 'chess'
+  const isCarrom = sport === 'carrom'
   const sportRules = SPORT_RULES[sport]
   const ui = sportUi(sport)
   const isTeamSub  = (match as unknown as { match_kind?: string }).match_kind === 'team_submatch'
   const _ep1       = match.player1_id ?? (isTeamSub ? 'TEAM_A' : null)
   const _ep2       = match.player2_id ?? (isTeamSub ? 'TEAM_B' : null)
-  const matchState = computeMatchState(games, activeFormat, _ep1, _ep2)
+  const matchState = isChess
+    ? computeChessMatchState(games, _ep1, _ep2)
+    : isCarrom
+    ? computeCarromMatchState(games, tournament, _ep1, _ep2)
+    : computeMatchState(games, activeFormat, _ep1, _ep2)
   const gameNumbers = inferGameNumbersToShow(games, activeFormat, _ep1, _ep2)
   const isComplete = match.status === 'complete'
   const isLive     = match.status === 'live'
@@ -295,11 +307,19 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
         {/* Sport + target context — always visible so an operator scoring
             multiple sports never mis-keys a threshold (11 vs 21 points) */}
         <div className="px-4 pb-2 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
-          <span>{sport === 'badminton' ? '🏸 Badminton' : '🏓 Table Tennis'}</span>
+          <span>{sport === 'badminton' ? '🏸 Badminton' : sport === 'carrom' ? '🎯 Carrom' : sport === 'chess' ? '♟️ Chess' : '🏓 Table Tennis'}</span>
           <span className="text-white/40">·</span>
-          <span>{FORMAT_CONFIGS[activeFormat].label}</span>
-          <span className="text-white/40">·</span>
-          <span>Race to {sportRules.unitWinThreshold}</span>
+          {isChess ? (
+            <span>Single decisive game</span>
+          ) : isCarrom ? (
+            <span>Race to {tournament.carrom_board_target ?? sportRules.boardTarget} pts · {tournament.carrom_max_boards ?? sportRules.maxBoards} boards</span>
+          ) : (
+            <>
+              <span>{FORMAT_CONFIGS[activeFormat].label}</span>
+              <span className="text-white/40">·</span>
+              <span>Race to {sportRules.unitWinThreshold}</span>
+            </>
+          )}
         </div>
       </header>
 
@@ -307,10 +327,10 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
         <div className="surface-card p-4 sm:p-6 flex flex-col gap-5">
 
           {/* Scoreboard */}
-          <ScoreboardHeader match={match} matchState={matchState} activeFormat={activeFormat} isComplete={isComplete} isLive={isLive} ui={ui} />
+          <ScoreboardHeader match={match} matchState={matchState} activeFormat={activeFormat} isComplete={isComplete} isLive={isLive} ui={ui} sport={sport} />
 
-          {/* Format selector */}
-          {!isComplete && (
+          {/* Format selector — rally sports only (chess is single-game, carrom uses board-target config, not bo-N) */}
+          {!isComplete && !isChess && !isCarrom && (
             <div className="flex items-center gap-3 px-1 flex-wrap">
               <span className="text-xs font-semibold text-muted-foreground shrink-0">Format:</span>
               <div className="flex gap-1.5 flex-wrap">
@@ -344,8 +364,25 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
             </div>
           )}
 
-          {/* Game score entry */}
-          {(p1 || p2 || isTeamSub || games.length > 0) && (
+          {/* Chess: single decisive game — Win/Draw/Loss picker */}
+          {isChess && (p1 || p2) && (
+            <ChessResultPanel
+              matchId={match.id} p1={p1} p2={p2} games={games} isComplete={isComplete}
+              isPending={isPending} ui={ui} startTransition={startTransition} setLoading={setLoading} router={router}
+            />
+          )}
+
+          {/* Carrom: board-by-board winner + points entry, racing to the tournament's target */}
+          {isCarrom && (p1 || p2) && (
+            <CarromBoardPanel
+              matchId={match.id} p1={p1} p2={p2} games={games} tournament={tournament}
+              isComplete={isComplete} isPending={isPending} ui={ui}
+              startTransition={startTransition} setLoading={setLoading} router={router}
+            />
+          )}
+
+          {/* Game score entry — rally sports (table tennis / badminton) */}
+          {!isChess && !isCarrom && (p1 || p2 || isTeamSub || games.length > 0) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-base">
@@ -359,9 +396,9 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
                 {/* Column header */}
                 <div className="grid grid-cols-[28px_1fr_14px_1fr_44px] sm:grid-cols-[36px_1fr_16px_1fr_52px] gap-1.5 sm:gap-2 items-center pb-2 px-1">
                   <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground text-center">#</span>
-                  <span className="text-xs font-medium text-foreground text-center truncate">{p1?.name ?? 'Player 1'}</span>
+                  <span className="text-xs font-medium text-foreground text-center truncate">{playerDisplayName(p1)}</span>
                   <span />
-                  <span className="text-xs font-medium text-foreground text-center truncate">{p2?.name ?? 'Player 2'}</span>
+                  <span className="text-xs font-medium text-foreground text-center truncate">{playerDisplayName(p2)}</span>
                   <span />
                 </div>
 
@@ -487,18 +524,24 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
             </div>
           )}
 
-          {/* Winner celebration */}
-          {isComplete && (match.winner || isTeamSub) && (
+          {/* Winner celebration (or draw, chess only) */}
+          {isComplete && (match.winner || isTeamSub || (isChess && matchState.outcome === 'draw')) && (
             <div className={cn('rounded-2xl border p-6 text-center animate-fade-in', ui.borderLight, ui.bgLight)}>
-              <Trophy className="h-8 w-8 text-amber-400 mx-auto mb-3" />
+              {matchState.outcome === 'draw' ? (
+                <span className="text-3xl mx-auto mb-3 block">🤝</span>
+              ) : (
+                <Trophy className="h-8 w-8 text-amber-400 mx-auto mb-3" />
+              )}
               <p className="font-display text-2xl font-bold tracking-wide">
-                {isTeamSub
-                  ? (matchState.outcome === 'player1_wins' ? (p1?.name ?? 'Player 1') : (p2?.name ?? 'Player 2'))
+                {matchState.outcome === 'draw'
+                  ? 'Draw'
+                  : isTeamSub
+                  ? (matchState.outcome === 'player1_wins' ? playerDisplayName(p1) : playerDisplayName(p2))
                   : match.winner?.name
                 }
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                {match.player1_games}–{match.player2_games} ·{' '}
+                {isCarrom ? `${matchState.player1Points ?? 0}–${matchState.player2Points ?? 0} pts` : `${match.player1_games}–${match.player2_games}`} ·{' '}
                 {matchKind === 'round_robin' ? 'match complete' : isTeamSub ? 'sub-match complete' : 'advances to next round'}
               </p>
               <Link
@@ -519,17 +562,30 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
 
 // ── ScoreboardHeader ──────────────────────────────────────────────────────────
 
-function ScoreboardHeader({ match, matchState, activeFormat, isComplete, isLive, ui }: {
+function ScoreboardHeader({ match, matchState, activeFormat, isComplete, isLive, ui, sport }: {
   match:        Match
   matchState:   ComputedMatchState
   activeFormat: MatchFormat
   isComplete:   boolean
   isLive:       boolean
   ui:           SportUiClasses
+  sport:        SportType
 }) {
   const isTeamSub  = (match as unknown as { match_kind?: string }).match_kind === 'team_submatch'
   const p1Win      = isComplete && (isTeamSub ? matchState.outcome === 'player1_wins' : match.winner_id === match.player1_id)
   const p2Win      = isComplete && (isTeamSub ? matchState.outcome === 'player2_wins' : match.winner_id === match.player2_id)
+  const isChess    = sport === 'chess'
+  const isCarrom   = sport === 'carrom'
+  const isDraw     = isChess && matchState.outcome === 'draw'
+
+  // Carrom's headline number is cumulative BOARD POINTS (what decides the
+  // match), not boards-won-count. Chess shows a simple 1/½/0 result.
+  const bigLeft  = isCarrom ? (matchState.player1Points ?? 0) : isChess ? (isDraw ? '½' : matchState.player1Games) : matchState.player1Games
+  const bigRight = isCarrom ? (matchState.player2Points ?? 0) : isChess ? (isDraw ? '½' : matchState.player2Games) : matchState.player2Games
+  const leftAhead  = isCarrom ? (matchState.player1Points ?? 0) > (matchState.player2Points ?? 0) : matchState.player1Games > matchState.player2Games
+  const rightAhead = isCarrom ? (matchState.player2Points ?? 0) > (matchState.player1Points ?? 0) : matchState.player2Games > matchState.player1Games
+
+  const badgeLabel = isChess ? 'Single Game' : isCarrom ? `${matchState.player1Games}–${matchState.player2Games} boards` : FORMAT_CONFIGS[activeFormat].label
 
   return (
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -537,24 +593,12 @@ function ScoreboardHeader({ match, matchState, activeFormat, isComplete, isLive,
         <PlayerCol player={match.player1} games={matchState.player1Games} isWinner={p1Win} side="left" />
         <div className="flex flex-col items-center gap-1.5">
           <div className="font-display text-3xl sm:text-5xl font-black tracking-tight tabular-nums leading-none">
-            <span className={cn(
-              matchState.player1Games > matchState.player2Games
-                ? 'text-foreground'
-                : matchState.player1Games < matchState.player2Games
-                ? 'text-muted-foreground/50'
-                : 'text-foreground',
-            )}>
-              {matchState.player1Games}
+            <span className={cn(leftAhead ? 'text-foreground' : rightAhead ? 'text-muted-foreground/50' : 'text-foreground')}>
+              {bigLeft}
             </span>
             <span className="text-muted-foreground/30 mx-1 text-2xl">–</span>
-            <span className={cn(
-              matchState.player2Games > matchState.player1Games
-                ? 'text-foreground'
-                : matchState.player2Games < matchState.player1Games
-                ? 'text-muted-foreground/50'
-                : 'text-foreground',
-            )}>
-              {matchState.player2Games}
+            <span className={cn(rightAhead ? 'text-foreground' : leftAhead ? 'text-muted-foreground/50' : 'text-foreground')}>
+              {bigRight}
             </span>
           </div>
           <span className={cn(
@@ -565,7 +609,7 @@ function ScoreboardHeader({ match, matchState, activeFormat, isComplete, isLive,
               ? `${ui.bgLight} ${ui.text}`
               : 'bg-muted text-muted-foreground',
           )}>
-            {FORMAT_CONFIGS[activeFormat].label}
+            {badgeLabel}
           </span>
         </div>
         <PlayerCol player={match.player2} games={matchState.player2Games} isWinner={p2Win} side="right" />
@@ -752,5 +796,197 @@ function ScoreInput({ value, onChange, isWinner, hasError, disabled, ui }: {
       )}
       placeholder="–"
     />
+  )
+}
+
+// ── ChessResultPanel ──────────────────────────────────────────────────────────
+// Chess has no point tally — a match is a single decisive game, scored as a
+// straight Win/Draw/Loss pick (see saveChessResult / computeChessMatchState).
+
+function ChessResultPanel({ matchId, p1, p2, games, isComplete, isPending, ui, startTransition, setLoading, router }: {
+  matchId: string
+  p1?: { name: string } | null
+  p2?: { name: string } | null
+  games: Game[]
+  isComplete: boolean
+  isPending: boolean
+  ui: SportUiClasses
+  startTransition: (fn: () => void) => void
+  setLoading: (v: boolean) => void
+  router: ReturnType<typeof useRouter>
+}) {
+  const existing = games.find(g => g.game_number === 1)
+
+  const pick = (outcome: 'player1_wins' | 'draw' | 'player2_wins') => {
+    setLoading(true)
+    startTransition(async () => {
+      const res = await saveChessResult(matchId, outcome)
+      setLoading(false)
+      if (!res.success) toast({ title: 'Could not save result', description: res.error, variant: 'destructive' })
+      else { toast({ title: 'Result saved ✓' }); router.refresh() }
+    })
+  }
+
+  const clearResult = () => {
+    setLoading(true)
+    startTransition(async () => {
+      const res = await deleteGameScore(matchId, 1)
+      setLoading(false)
+      if (!res.success) toast({ title: 'Could not clear result', description: res.error, variant: 'destructive' })
+      else { toast({ title: 'Result cleared' }); router.refresh() }
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Result</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {isComplete && existing ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {existing.is_draw ? 'Game drawn' : 'Result recorded'}
+            </p>
+            <Button variant="outline" size="sm" onClick={clearResult} disabled={isPending} className="gap-1.5">
+              <Trash2 className="h-3.5 w-3.5" /> Clear Result
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => pick('player1_wins')} disabled={isPending}
+              className={cn('flex flex-col items-center gap-1 rounded-xl border-2 p-3 transition-colors', 'border-border bg-card hover:border-current', ui.text, ui.hoverBorder)}>
+              <Trophy className="h-4 w-4" />
+              <span className="text-xs font-semibold truncate max-w-full">{playerDisplayName(p1)}</span>
+              <span className="text-[10px] text-muted-foreground">wins</span>
+            </button>
+            <button onClick={() => pick('draw')} disabled={isPending}
+              className="flex flex-col items-center gap-1 rounded-xl border-2 border-border bg-card p-3 hover:border-muted-foreground/40 transition-colors">
+              <span className="text-base">🤝</span>
+              <span className="text-xs font-semibold">Draw</span>
+              <span className="text-[10px] text-muted-foreground">½ – ½</span>
+            </button>
+            <button onClick={() => pick('player2_wins')} disabled={isPending}
+              className={cn('flex flex-col items-center gap-1 rounded-xl border-2 p-3 transition-colors', 'border-border bg-card hover:border-current', ui.text, ui.hoverBorder)}>
+              <Trophy className="h-4 w-4" />
+              <span className="text-xs font-semibold truncate max-w-full">{playerDisplayName(p2)}</span>
+              <span className="text-[10px] text-muted-foreground">wins</span>
+            </button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── CarromBoardPanel ──────────────────────────────────────────────────────────
+// A carrom "board" is winner-take-all points (0-12), not two-sided rally
+// scoring — entry is (which side won, how many points), one board at a time.
+
+function CarromBoardPanel({ matchId, p1, p2, games, tournament, isComplete, isPending, ui, startTransition, setLoading, router }: {
+  matchId: string
+  p1?: { name: string } | null
+  p2?: { name: string } | null
+  games: Game[]
+  tournament: Tournament
+  isComplete: boolean
+  isPending: boolean
+  ui: SportUiClasses
+  startTransition: (fn: () => void) => void
+  setLoading: (v: boolean) => void
+  router: ReturnType<typeof useRouter>
+}) {
+  const [winner, setWinner] = useState<'player1' | 'player2'>('player1')
+  const [points, setPoints] = useState('')
+  const rules = SPORT_RULES.carrom
+  const cap = rules.maxPointsPerBoard ?? 12
+  const sorted = [...games].sort((a, b) => a.game_number - b.game_number)
+  const nextBoardNum = (sorted.length ? Math.max(...sorted.map(g => g.game_number)) : 0) + 1
+
+  const addBoard = () => {
+    const pts = parseInt(points, 10)
+    if (isNaN(pts) || pts < 1 || pts > cap) {
+      toast({ title: 'Invalid points', description: `Enter a value between 1 and ${cap}.`, variant: 'destructive' })
+      return
+    }
+    setLoading(true)
+    startTransition(async () => {
+      const res = await saveCarromBoard(matchId, nextBoardNum, winner, pts)
+      setLoading(false)
+      if (!res.success) toast({ title: 'Could not save board', description: res.error, variant: 'destructive' })
+      else { toast({ title: `Board ${nextBoardNum} saved ✓` }); setPoints(''); router.refresh() }
+    })
+  }
+
+  const deleteBoard = (boardNum: number) => {
+    setLoading(true)
+    startTransition(async () => {
+      const res = await deleteCarromBoard(matchId, boardNum)
+      setLoading(false)
+      if (!res.success) toast({ title: 'Could not delete board', description: res.error, variant: 'destructive' })
+      else { toast({ title: `Board ${boardNum} removed` }); router.refresh() }
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between text-base">
+          <span>Boards</span>
+          <span className="text-xs font-normal text-muted-foreground font-sans">
+            Race to {tournament.carrom_board_target ?? rules.boardTarget} pts · max {tournament.carrom_max_boards ?? rules.maxBoards} boards
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        {sorted.map(g => {
+          const p1Won = (g.score1 ?? 0) > 0
+          return (
+            <div key={g.game_number} className="flex items-center justify-between gap-2 rounded-lg bg-muted/20 px-3 py-2">
+              <span className="text-xs font-bold text-muted-foreground w-14 shrink-0">Board {g.game_number}</span>
+              <span className="flex-1 text-sm truncate">
+                <span className={cn('font-semibold', p1Won ? ui.text : 'text-muted-foreground')}>{playerDisplayName(p1)}</span>
+                {' vs '}
+                <span className={cn('font-semibold', !p1Won ? ui.text : 'text-muted-foreground')}>{playerDisplayName(p2)}</span>
+              </span>
+              <span className={cn('font-display font-bold text-sm px-2 py-0.5 rounded-full', ui.bgLight, ui.text)}>
+                +{p1Won ? g.score1 : g.score2}
+              </span>
+              <button onClick={() => deleteBoard(g.game_number)} disabled={isPending}
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )
+        })}
+
+        {!isComplete && (
+          <div className="flex flex-col gap-2 pt-2 border-t border-border/40 mt-1">
+            <p className="text-xs font-semibold text-muted-foreground">Board {nextBoardNum} winner</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setWinner('player1')}
+                className={cn('rounded-lg border-2 px-3 py-2 text-sm font-semibold truncate transition-colors',
+                  winner === 'player1' ? `${ui.border} ${ui.bgLight} ${ui.text}` : 'border-border text-muted-foreground')}>
+                {playerDisplayName(p1)}
+              </button>
+              <button onClick={() => setWinner('player2')}
+                className={cn('rounded-lg border-2 px-3 py-2 text-sm font-semibold truncate transition-colors',
+                  winner === 'player2' ? `${ui.border} ${ui.bgLight} ${ui.text}` : 'border-border text-muted-foreground')}>
+                {playerDisplayName(p2)}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="number" inputMode="numeric" min={1} max={cap} value={points}
+                onChange={e => setPoints(e.target.value)}
+                placeholder={`Points (1–${cap})`}
+                className="flex-1 h-10 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <Button onClick={addBoard} disabled={isPending || !points} className="gap-1.5" style={{ background: ui.hex, color: '#fff' }}>
+                <Save className="h-3.5 w-3.5" /> Save Board
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

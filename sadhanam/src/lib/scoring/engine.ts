@@ -19,6 +19,7 @@
 
 import type {
   GameScoreInput,
+  ChessResultInput,
   ComputedGame,
   ComputedMatchState,
   CanAddGameResult,
@@ -26,9 +27,10 @@ import type {
   ValidationError,
   GameOutcome,
   MatchOutcome,
+  SportRuleSet,
 } from './types'
 import { FORMAT_CONFIGS, SPORT_RULES, DEFAULT_SPORT } from './types'
-import type { MatchFormat, Game, SportType } from '@/lib/types'
+import type { MatchFormat, Game, SportType, Tournament } from '@/lib/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. validateGameScore
@@ -55,10 +57,21 @@ import type { MatchFormat, Game, SportType } from '@/lib/types'
  * validateGameScore({ score1: 9,  score2: 7  }) // { ok: false } ← below 11
  */
 export function validateGameScore(input: GameScoreInput, sport: SportType = DEFAULT_SPORT): ValidationResult {
+  const rules = SPORT_RULES[sport] ?? SPORT_RULES[DEFAULT_SPORT]
+
+  // Carrom boards and chess results use entirely different validators —
+  // see validateCarromBoard / validateChessResult below. Routing a carrom/
+  // chess score through the rally validator would reject nearly everything.
+  if (rules.scoringModel === 'board') return validateCarromBoard(input, rules)
+  if (rules.scoringModel === 'result') {
+    return { ok: false, errors: [{ code: 'MISSING_PLAYER', message: 'Chess games are scored with validateChessResult, not point scores.', field: 'both' }] }
+  }
+
   const errors: ValidationError[] = []
   const { score1, score2 } = input
-  const rules = SPORT_RULES[sport] ?? SPORT_RULES[DEFAULT_SPORT]
-  const { unitWinThreshold: winThreshold, deuceAt, maxPoints: cap } = rules
+  const winThreshold = rules.unitWinThreshold ?? 11
+  const deuceAt       = rules.deuceAt ?? 10
+  const cap           = rules.maxPoints
   const unit = rules.unitLabel.toLowerCase()
 
   // ── 1. Type checks ──────────────────────────────────────────────────────────
@@ -194,6 +207,50 @@ export function validateGameScore(input: GameScoreInput, sport: SportType = DEFA
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 1b. validateCarromBoard / validateChessResult
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Validates a single carrom board score.
+ *
+ * Unlike rally sports, only ONE side scores per board — the winner is
+ * credited with the value of the loser's remaining coins (+ queen if they
+ * also cleared it), so a valid board always has exactly one side at 0.
+ * Per ICF/Indian Carrom Federation Laws of Carrom, a board caps at
+ * `maxPointsPerBoard` (12 = 9 coins + 3pt queen, official rules).
+ */
+export function validateCarromBoard(input: GameScoreInput, rules: SportRuleSet): ValidationResult {
+  const { score1, score2 } = input
+  const cap = rules.maxPointsPerBoard ?? 12
+
+  if (!Number.isInteger(score1) || !Number.isInteger(score2)) {
+    return { ok: false, errors: [{ code: 'SCORE_NOT_INTEGER', message: 'Board points must be whole numbers.', field: 'both' }] }
+  }
+  if (score1 < 0 || score2 < 0) {
+    return { ok: false, errors: [{ code: 'SCORE_NEGATIVE', message: 'Board points cannot be negative.', field: score1 < 0 ? 'score1' : 'score2' }] }
+  }
+  if (score1 === 0 && score2 === 0) {
+    return { ok: false, errors: [{ code: 'SCORE_BOTH_ZERO', message: 'A board must have a winner — one side must score at least 1 point.', field: 'both' }] }
+  }
+  if (score1 > 0 && score2 > 0) {
+    return { ok: false, errors: [{ code: 'GAME_WINNER_UNCLEAR', message: 'Only the board winner scores points in carrom — the loser\u2019s side must be 0.', field: 'both' }] }
+  }
+  const winnerScore = Math.max(score1, score2)
+  if (winnerScore > cap) {
+    return { ok: false, errors: [{ code: 'WINNER_EXCEEDS_NORMAL', message: `A board cannot exceed ${cap} points (all coins + queen).`, field: score1 > score2 ? 'score1' : 'score2' }] }
+  }
+  return { ok: true }
+}
+
+/** Validates a chess game result. Every choice is a legal outcome — this exists mainly for a uniform call shape with the other sports. */
+export function validateChessResult(input: ChessResultInput): ValidationResult {
+  if (input.outcome !== 'player1_wins' && input.outcome !== 'draw' && input.outcome !== 'player2_wins') {
+    return { ok: false, errors: [{ code: 'GAME_WINNER_UNCLEAR', message: 'Choose a result: Player 1 wins, Draw, or Player 2 wins.', field: 'both' }] }
+  }
+  return { ok: true }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 2. computeMatchState
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -286,6 +343,108 @@ function buildComputedGame(
     score2:     s2,
     outcome,
     isDeuce:    s1 >= 10 && s2 >= 10,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2b. computeCarromMatchState / computeChessMatchState
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Carrom match completion is NOT "best of N boards won" — it's cumulative
+ * board points racing to a target (25 pts / 8 boards by ICF default, but
+ * organizer-configurable per tournament — see Tournament.carrom_board_target
+ * etc). If still tied after the board cap, an extra sudden-death board is
+ * required (game_number may legitimately exceed maxBoards in that case).
+ */
+export function computeCarromMatchState(
+  games:      Game[],
+  tournament: Pick<Tournament, 'carrom_board_target' | 'carrom_max_boards'>,
+  player1Id:  string | null,
+  player2Id:  string | null,
+): ComputedMatchState {
+  const rules      = SPORT_RULES.carrom
+  const boardTarget = tournament.carrom_board_target ?? rules.boardTarget ?? 25
+  const maxBoards    = tournament.carrom_max_boards   ?? rules.maxBoards   ?? 8
+
+  const sorted = [...games].sort((a, b) => a.game_number - b.game_number)
+
+  let p1Boards = 0, p2Boards = 0
+  let p1Points = 0, p2Points = 0
+  let decidingGame: number | undefined
+  const computed: ComputedGame[] = []
+
+  for (const g of sorted) {
+    if (decidingGame !== undefined) { computed.push(buildComputedGame(g, player1Id, player2Id)); continue }
+
+    const cg = buildComputedGame(g, player1Id, player2Id)
+    computed.push(cg)
+    p1Points += cg.score1
+    p2Points += cg.score2
+    if (cg.outcome === 'player1_wins') p1Boards++
+    else if (cg.outcome === 'player2_wins') p2Boards++
+
+    const boardsPlayed = g.game_number
+    const reachedTarget = p1Points >= boardTarget || p2Points >= boardTarget
+    const capReached    = boardsPlayed >= maxBoards && p1Points !== p2Points
+    // Tied exactly at the board cap needs a sudden-death extra board — not decided yet.
+    if (reachedTarget || capReached) decidingGame = g.game_number
+  }
+
+  let outcome: MatchOutcome = 'in_progress'
+  if (decidingGame !== undefined) outcome = p1Points > p2Points ? 'player1_wins' : 'player2_wins'
+
+  const boardsPlayed  = sorted.length
+  const gamesRemaining = outcome !== 'in_progress'
+    ? 0
+    : (boardsPlayed >= maxBoards ? 1 /* sudden-death board */ : maxBoards - boardsPlayed)
+
+  return {
+    player1Games: p1Boards,
+    player2Games: p2Boards,
+    player1Points: p1Points,
+    player2Points: p2Points,
+    outcome,
+    games: computed,
+    decidingGame,
+    gamesRemaining,
+  }
+}
+
+/**
+ * Chess match state — per product decision, a chess "match" is a single
+ * decisive game (Win/Draw/Loss), not best-of-N. `games[0]` (if present) is
+ * the entire match.
+ */
+export function computeChessMatchState(
+  games:     Game[],
+  player1Id: string | null,
+  player2Id: string | null,
+): ComputedMatchState {
+  const g = games.find(g => g.game_number === 1)
+
+  if (!g) {
+    return { player1Games: 0, player2Games: 0, outcome: 'in_progress', games: [], gamesRemaining: 1 }
+  }
+
+  let outcome: MatchOutcome
+  let cgOutcome: GameOutcome
+  if (g.is_draw) { outcome = 'draw'; cgOutcome = 'draw' }
+  else if (g.winner_id && g.winner_id === player1Id) { outcome = 'player1_wins'; cgOutcome = 'player1_wins' }
+  else if (g.winner_id && g.winner_id === player2Id) { outcome = 'player2_wins'; cgOutcome = 'player2_wins' }
+  else { outcome = 'in_progress'; cgOutcome = 'draw' /* unreachable in practice */ }
+
+  const computed: ComputedGame = {
+    gameNumber: 1, score1: 0, score2: 0, outcome: cgOutcome, isDeuce: false, isDraw: g.is_draw,
+  }
+
+  return {
+    player1Games:  outcome === 'player1_wins' ? 1 : 0,
+    player2Games:  outcome === 'player2_wins' ? 1 : 0,
+    outcome,
+    games:         outcome === 'in_progress' ? [] : [computed],
+    decidingGame:  outcome === 'in_progress' ? undefined : 1,
+    gamesRemaining: outcome === 'in_progress' ? 1 : 0,
   }
 }
 

@@ -20,6 +20,10 @@ playwright/.cache/
 .next/
 out/
 build/
+next-env.d.ts
+
+# TypeScript
+*.tsbuildinfo
 
 # Environment
 .env

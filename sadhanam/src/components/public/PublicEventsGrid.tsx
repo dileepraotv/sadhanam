@@ -29,7 +29,7 @@ interface Props {
   events: EventWithCounts[]
 }
 
-const SPORT_ORDER: SportType[] = ['table_tennis', 'badminton']
+const SPORT_ORDER: SportType[] = ['table_tennis', 'badminton', 'carrom', 'chess']
 
 export function PublicEventsGrid({ cid, events }: Props) {
   const [filter, setFilter] = useState<SportFilter>('all')

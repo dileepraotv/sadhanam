@@ -114,18 +114,32 @@ export async function createEvent(cid: string, formData: FormData) {
   // Inherit location from championship
   const { data: champ } = await supabase.from('championships').select('location').eq('id', cid).single()
 
+  const insertRow: Record<string, unknown> = {
+    name,
+    format,
+    date,
+    format_type,
+    sport_type,
+    championship_id: cid,
+    location: champ?.location ?? null,
+    created_by: user.id,
+  }
+
+  // Carrom-only fields (migration v14). Harmless to omit for other sports —
+  // the DB defaults (25/3/8, is_doubles=false) apply.
+  if (sport_type === 'carrom') {
+    insertRow.is_doubles          = formData.get('is_doubles') === 'true'
+    const boardTarget = Number(formData.get('carrom_board_target'))
+    const queenValue   = Number(formData.get('carrom_queen_value'))
+    const maxBoards    = Number(formData.get('carrom_max_boards'))
+    if (Number.isFinite(boardTarget) && boardTarget > 0) insertRow.carrom_board_target = boardTarget
+    if (Number.isFinite(queenValue)  && queenValue  > 0) insertRow.carrom_queen_value  = queenValue
+    if (Number.isFinite(maxBoards)   && maxBoards   > 0) insertRow.carrom_max_boards   = maxBoards
+  }
+
   const { data, error } = await supabase
     .from('tournaments')
-    .insert({
-      name,
-      format,
-      date,
-      format_type,
-      sport_type,
-      championship_id: cid,
-      location: champ?.location ?? null,
-      created_by: user.id,
-    })
+    .insert(insertRow)
     .select('id')
     .single()
 

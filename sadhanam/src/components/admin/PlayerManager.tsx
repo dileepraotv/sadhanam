@@ -6,7 +6,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { NextStepBanner } from '@/components/admin/stages/NextStepBanner'
 import { Plus, Trash2, Users, ClipboardList, Award, Check, Pencil, X, FileSpreadsheet, AlertTriangle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, playerDisplayName } from '@/lib/utils'
 import type { Player, Tournament } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input, Label, Textarea, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/ui/index'
@@ -25,6 +25,9 @@ export function PlayerManager({ tournament, players }: PlayerManagerProps) {
   const [club, setClub]         = useState('')
   const [seed, setSeed]         = useState<string>('')
   const [group, setGroup]       = useState<string>('')
+  // Carrom doubles only (migration v14) — the pair's second player name.
+  const [partnerName, setPartnerName] = useState('')
+  const isDoubles = tournament.is_doubles === true
   const [bulkText, setBulkText] = useState('')
   const [nameError, setNameError] = useState('')
   const [showDeleteAll, setShowDeleteAll] = useState(false)
@@ -78,12 +81,16 @@ export function PlayerManager({ tournament, players }: PlayerManagerProps) {
     if (players.some(p => p.name.trim().toLowerCase() === trimmed.toLowerCase())) {
       setNameError(`A player named "${trimmed}" already exists in this event`); return
     }
+    if (isDoubles && !partnerName.trim()) {
+      setNameError('Enter both names for a doubles pair'); return
+    }
     setNameError('')
     const fd = new FormData()
     fd.set('name', trimmed)
     fd.set('club', club.trim())
     if (seed) fd.set('seed', seed)
     if (group) fd.set('preferred_group', group)
+    if (isDoubles && partnerName.trim()) fd.set('partner_name', partnerName.trim())
     setLoading(true)
     startTransition(async () => {
       try {
@@ -91,8 +98,8 @@ export function PlayerManager({ tournament, players }: PlayerManagerProps) {
         if (result.error) {
           toast({ title: 'Could not add player', description: result.error, variant: 'destructive' })
         } else {
-          setName(''); setClub(''); setSeed(''); setGroup(''); setNameError('')
-          toast({ title: 'Player added', description: trimmed })
+          setName(''); setClub(''); setSeed(''); setGroup(''); setPartnerName(''); setNameError('')
+          toast({ title: isDoubles ? 'Pair added' : 'Player added', description: isDoubles ? `${trimmed} / ${partnerName.trim()}` : trimmed })
           router.refresh()
         }
       } finally {
@@ -279,7 +286,7 @@ export function PlayerManager({ tournament, players }: PlayerManagerProps) {
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="pname">Player name *</Label>
+                    <Label htmlFor="pname">{isDoubles ? 'Player 1 name *' : 'Player name *'}</Label>
                     <Input id="pname" placeholder="e.g. Alice Tran"
                       value={name}
                       onChange={e => { setName(e.target.value); setNameError('') }}
@@ -288,14 +295,34 @@ export function PlayerManager({ tournament, players }: PlayerManagerProps) {
                     />
                     {nameError && <p className="text-xs text-red-500">{nameError}</p>}
                   </div>
+                  {isDoubles ? (
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="ppartner">Player 2 name (partner) *</Label>
+                      <Input id="ppartner" placeholder="e.g. Bob Reyes"
+                        value={partnerName}
+                        onChange={e => { setPartnerName(e.target.value); setNameError('') }}
+                        onKeyDown={e => e.key === 'Enter' && handleAddSingle()}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="pclub">Club (optional)</Label>
+                      <Input id="pclub" placeholder="e.g. City TTC" value={club}
+                        onChange={e => setClub(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddSingle()}
+                      />
+                    </div>
+                  )}
+                </div>
+                {isDoubles && (
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="pclub">Club (optional)</Label>
-                    <Input id="pclub" placeholder="e.g. City TTC" value={club}
+                    <Label htmlFor="pclub2">Club (optional)</Label>
+                    <Input id="pclub2" placeholder="e.g. City Carrom Club" value={club}
                       onChange={e => setClub(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleAddSingle()}
                     />
                   </div>
-                </div>
+                )}
                 <div className="flex gap-2">
                   <div className="flex flex-col gap-1.5 w-28">
                     <Label>Seed (optional)</Label>
@@ -455,7 +482,7 @@ export function PlayerManager({ tournament, players }: PlayerManagerProps) {
                             </span>
                           )}
                           <div className="flex flex-col min-w-0 overflow-hidden">
-                            <span className="font-medium text-sm truncate text-foreground dark:text-white">{player.name}</span>
+                            <span className="font-medium text-sm truncate text-foreground dark:text-white">{playerDisplayName(player)}</span>
                             {player.club && (
                               <span className="text-xs truncate text-muted-foreground">{player.club}</span>
                             )}

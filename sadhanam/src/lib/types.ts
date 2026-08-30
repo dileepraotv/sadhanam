@@ -10,7 +10,7 @@ export type MatchFormat      = 'bo1' | 'bo3' | 'bo5' | 'bo7'
  * Defaults to 'table_tennis' everywhere (DB column default + all app-level
  * fallbacks) so every pre-existing tournament is unambiguously table tennis.
  */
-export type SportType = 'table_tennis' | 'badminton'
+export type SportType = 'table_tennis' | 'badminton' | 'carrom' | 'chess'
 
 /**
  * All tournament format types.
@@ -87,6 +87,15 @@ export interface Tournament {
   rr_advance_count?:           number
   stage1_complete?:            boolean
   stage2_bracket_generated?:   boolean
+  // v14: carrom match-completion config (organizer-configurable per event;
+  // DB defaults mirror ICF official rules — 25 points, 8 boards, queen = 3).
+  // Ignored for all other sports.
+  carrom_board_target?:        number
+  carrom_queen_value?:         number
+  carrom_max_boards?:          number
+  // v14: doubles-pair entrant mode (carrom doubles today) — when true, the
+  // player roster holds pairs (name + partner_name) instead of individuals.
+  is_doubles?:                 boolean
 }
 
 export interface Player {
@@ -97,6 +106,11 @@ export interface Player {
   country_code:    string | null
   seed:            number | null
   preferred_group: number | null   // 1=Group 1, 2=Group 2, … set via Excel/paste upload
+  // v14: when tournament.is_doubles is true, this row represents a pair —
+  // partner_name is the second player's name. Every bracket/RR/standings/
+  // scoring code path treats the row as one opaque entrant either way;
+  // display code renders "name / partner_name" when partner_name is set.
+  partner_name?:   string | null
   created_at:      string
   updated_at:      string
 }
@@ -139,6 +153,8 @@ export interface Match {
   bracket_side?:          BracketSide | null
   loser_next_match_id?:   string | null
   loser_next_slot?:       1 | 2 | null
+  // v14: chess draw (winner_id stays null; is_draw disambiguates from pending)
+  is_draw?:        boolean
   // Joined
   player1?:        Player | null
   player2?:        Player | null
@@ -153,6 +169,9 @@ export interface Game {
   score1:      number | null
   score2:      number | null
   winner_id:   string | null
+  // v14: chess draw (score1/score2 unused for chess; is_draw disambiguates
+  // a drawn game from a not-yet-played one, since winner_id is null either way)
+  is_draw?:    boolean
   created_at:  string
   updated_at:  string
 }

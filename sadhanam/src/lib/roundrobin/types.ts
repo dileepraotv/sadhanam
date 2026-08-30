@@ -88,6 +88,14 @@ export interface PlayerStanding {
   matchesPlayed:    number
   wins:             number
   losses:           number
+  /** Chess only — always 0 for rally/board sports. */
+  draws:            number
+  /**
+   * Match points: wins + draws*0.5. Equals `wins` for every sport without
+   * draws, so this is a drop-in replacement for sorting by wins alone —
+   * chess needs it as the PRIMARY sort key (1/0.5/0 per FIDE/ECU scoring).
+   */
+  points:           number
 
   /** Games won minus games lost across all completed matches in the group */
   gameDifference:   number

@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { cn } from '@/lib/utils'
+import { cn, playerDisplayName } from '@/lib/utils'
 import { WinnerTrophy } from '@/components/shared/MatchUI'
 import { InlineLoader } from '@/components/shared/GlobalLoader'
 import { getRoundTab } from '@/lib/utils'
@@ -375,14 +375,14 @@ function DrawCard({ match, isAdmin, onClick }: { match: Match; isAdmin?: boolean
 }
 
 function DrawPlayerRow({ player, games, isWinner, isLoser, showScore, matchIsBye }: {
-  player?:    { name?: string | null; seed?: number | null } | null
+  player?:    { name?: string | null; seed?: number | null; partner_name?: string | null } | null
   games:      number
   isWinner:   boolean
   isLoser:    boolean
   showScore:  boolean
   matchIsBye: boolean
 }) {
-  const name  = (matchIsBye && !player?.name) ? 'BYE' : (player?.name ?? 'TBD')
+  const name  = (matchIsBye && !player?.name) ? 'BYE' : playerDisplayName(player?.name ? player as { name: string; partner_name?: string | null } : null)
   const isTbd = name === 'TBD'
 
   return (
@@ -479,8 +479,8 @@ function RoundList({ round, isAdmin, sport, matchBasePath, onMatchClick, expande
             <div className="border border-t-0 border-border/50 rounded-b-xl px-3 pb-3 pt-2 bg-card">
               <SingleMatchInlineScorer
                 matchId={m.id}
-                player1Name={m.player1?.name ?? 'Player 1'}
-                player2Name={m.player2?.name ?? 'Player 2'}
+                player1Name={playerDisplayName(m.player1)}
+                player2Name={playerDisplayName(m.player2)}
                 sport={sport ?? 'table_tennis'}
                 onSaved={() => onToggleExpand?.(m.id)}
               />
