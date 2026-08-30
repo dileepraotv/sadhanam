@@ -307,7 +307,7 @@ export function MatchScoringClient({ initialMatch, initialGames, tournament, bac
         {/* Sport + target context — always visible so an operator scoring
             multiple sports never mis-keys a threshold (11 vs 21 points) */}
         <div className="px-4 pb-2 flex items-center gap-1.5 text-[11px] font-semibold text-white/80">
-          <span>{sport === 'badminton' ? '🏸 Badminton' : sport === 'carrom' ? '🎯 Carrom' : sport === 'chess' ? '♟️ Chess' : '🏓 Table Tennis'}</span>
+          <span>{sport === 'badminton' ? '🏸 Badminton' : sport === 'carrom' ? '🥌 Carrom' : sport === 'chess' ? '♟️ Chess' : '🏓 Table Tennis'}</span>
           <span className="text-white/40">·</span>
           {isChess ? (
             <span>Single decisive game</span>

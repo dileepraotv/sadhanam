@@ -16,6 +16,23 @@ import type { SportType } from '@/lib/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+const SPORT_EMOJI: Record<SportType, string> = {
+  table_tennis: '🏓',
+  badminton:    '🏸',
+  carrom:       '🥌',
+  chess:        '♟️',
+}
+
+const SPORT_LABEL: Record<SportType, string> = {
+  table_tennis: 'Table Tennis',
+  badminton:    'Badminton',
+  carrom:       'Carrom',
+  chess:        'Chess',
+}
+
+/** Sports that currently have team formats. Carrom/Chess are singles-only for now. */
+const TEAM_SPORTS: SportType[] = ['table_tennis', 'badminton']
+
 type FormatType =
   | 'single_knockout'
   | 'single_round_robin'
@@ -247,18 +264,24 @@ export function NewEventForm({ cid, createAction }: Props) {
     if (!nameEdited) {
       const opt = FORMAT_OPTIONS.find(o => o.value === value)
       const activeSport = forSport ?? sport
-      if (opt) setName(`${displayFormat(opt, activeSport ?? 'table_tennis').defaultName} ${getDateSuffix()}`)
+      if (opt && activeSport) {
+        const { defaultName } = displayFormat(opt, activeSport)
+        setName(`${SPORT_LABEL[activeSport]} ${defaultName} ${getDateSuffix()}`)
+      }
     }
   }
 
   const handleSelectSport = (value: SportType) => {
     setSport(value)
+    // Carrom/Chess have no team formats yet — force back to Singles.
+    const nextTab = TEAM_SPORTS.includes(value) ? activeTab : 'singles'
+    setActiveTab(nextTab)
     // If the current format doesn't exist for the new sport (or no format has
     // been chosen yet, since sport starts unselected), fall back to the first
     // available format in the active category for that sport.
     const stillValid = formatType && FORMAT_OPTIONS.find(o => o.value === formatType)?.sports.includes(value)
     if (!stillValid) {
-      const fallback = FORMAT_OPTIONS.find(o => o.category === activeTab && o.sports.includes(value))
+      const fallback = FORMAT_OPTIONS.find(o => o.category === nextTab && o.sports.includes(value))
         ?? FORMAT_OPTIONS.find(o => o.sports.includes(value))
       if (fallback) handleSelectFormat(fallback.value, value)
     }
@@ -310,16 +333,16 @@ export function NewEventForm({ cid, createAction }: Props) {
         <p className="text-xs font-semibold text-muted-foreground">
           Sport <span className="text-destructive">*</span>
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {(['table_tennis', 'badminton', 'carrom', 'chess'] as SportType[]).map(s => {
             const sUi = sportUi(s)
-            const emoji = s === 'badminton' ? '🏸' : s === 'carrom' ? '🎯' : s === 'chess' ? '♟️' : '🏓'
-            const sLabel = s === 'badminton' ? 'Badminton' : s === 'carrom' ? 'Carrom' : s === 'chess' ? 'Chess' : 'Table Tennis'
+            const emoji = SPORT_EMOJI[s]
+            const sLabel = SPORT_LABEL[s]
             return (
               <button key={s} type="button"
                 onClick={() => handleSelectSport(s)}
                 className={cn(
-                  'flex-1 sm:flex-none px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all flex items-center justify-center gap-2',
+                  'w-full px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all flex items-center justify-center text-center gap-2',
                   sport === s
                     ? `${sUi.border} ${sUi.bgLight} ${sUi.text}`
                     : `border-border bg-card text-muted-foreground ${sUi.hoverBorder} hover:text-foreground`,
@@ -336,7 +359,7 @@ export function NewEventForm({ cid, createAction }: Props) {
       {/* ── Choose a sport first — formats depend on it ──────────────────── */}
       {!sport ? (
         <div className="rounded-2xl border-2 border-dashed border-border bg-muted/20 px-6 py-16 flex flex-col items-center justify-center gap-2 text-center">
-          <span className="text-3xl">🏓 · 🏸 · 🎯 · ♟️</span>
+          <span className="text-3xl">🏓 · 🏸 · 🥌 · ♟️</span>
           <p className="font-bold text-foreground">Choose a sport to continue</p>
           <p className="text-sm text-muted-foreground max-w-sm">
             Select a sport above to see the available formats and scoring rules.
@@ -351,9 +374,9 @@ export function NewEventForm({ cid, createAction }: Props) {
         {/* ── LEFT: format picker ───────────────────────────────────────── */}
         <div className="lg:w-72 xl:w-80 shrink-0 border-b lg:border-b-0 lg:border-r border-border flex flex-col">
 
-          {/* Category tabs */}
+          {/* Category tabs — Teams only shown for sports with team formats */}
           <div className="flex border-b border-border">
-            {(['singles', 'teams'] as Category[]).map(cat => (
+            {((sport && TEAM_SPORTS.includes(sport) ? ['singles', 'teams'] : ['singles']) as Category[]).map(cat => (
               <button key={cat} type="button"
                 onClick={() => {
                   setActiveTab(cat)
@@ -471,7 +494,7 @@ export function NewEventForm({ cid, createAction }: Props) {
                 id="event-name"
                 value={name}
                 onChange={e => handleNameChange(e.target.value)}
-                placeholder={`e.g. Under 13 Boys · ${selected.defaultName} ${getDateSuffix()}`}
+                placeholder={`e.g. Under 13 Boys · ${SPORT_LABEL[sport]} ${selected.defaultName} ${getDateSuffix()}`}
                 required
                 className={cn(
                   'flex h-10 w-full rounded-lg border-2 bg-background px-3 py-2 text-sm text-foreground',
