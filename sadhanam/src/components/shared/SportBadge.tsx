@@ -35,7 +35,7 @@ export const SPORT_CONFIG: Record<SportType, SportConfig> = {
   },
   carrom: {
     label: 'Carrom',
-    emoji: '🥌',
+    emoji: '🔘',
     color: 'text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800/60',
   },
   chess: {

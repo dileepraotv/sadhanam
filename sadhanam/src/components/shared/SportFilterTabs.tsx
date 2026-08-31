@@ -14,7 +14,7 @@ const TABS: { id: SportFilter; label: string }[] = [
   { id: 'all',          label: 'All' },
   { id: 'table_tennis', label: '🏓 Table Tennis' },
   { id: 'badminton',    label: '🏸 Badminton' },
-  { id: 'carrom',       label: '🥌 Carrom' },
+  { id: 'carrom',       label: '🔘 Carrom' },
   { id: 'chess',        label: '♟️ Chess' },
 ]
 

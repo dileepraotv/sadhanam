@@ -19,7 +19,7 @@ import type { SportType } from '@/lib/types'
 const SPORT_EMOJI: Record<SportType, string> = {
   table_tennis: '🏓',
   badminton:    '🏸',
-  carrom:       '🥌',
+  carrom:       '🔘',
   chess:        '♟️',
 }
 
@@ -359,7 +359,7 @@ export function NewEventForm({ cid, createAction }: Props) {
       {/* ── Choose a sport first — formats depend on it ──────────────────── */}
       {!sport ? (
         <div className="rounded-2xl border-2 border-dashed border-border bg-muted/20 px-6 py-16 flex flex-col items-center justify-center gap-2 text-center">
-          <span className="text-3xl">🏓 · 🏸 · 🥌 · ♟️</span>
+          <span className="text-3xl">🏓 · 🏸 · 🔘 · ♟️</span>
           <p className="font-bold text-foreground">Choose a sport to continue</p>
           <p className="text-sm text-muted-foreground max-w-sm">
             Select a sport above to see the available formats and scoring rules.
