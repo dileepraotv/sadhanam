@@ -1,7 +1,7 @@
 'use client'
 // cache-bust: 1773800313
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { cn, playerDisplayName } from '@/lib/utils'
 import { WinnerTrophy } from '@/components/shared/MatchUI'
@@ -200,15 +200,108 @@ const CARD_H = 92    // px — enough height for two player rows + divider
 const CONN_W = 30    // connector line width
 const COL_PAD = 10   // gap between card edge and connector
 
+// ── Connector line (measured, not formula-based) ──────────────────────────────
+//
+// Why measured instead of computed-by-formula: the previous implementation
+// derived every connector's start/end pixel purely from a doubling formula
+// (Math.pow(2, roundIdx)) that only produces a clean symmetric tree when every
+// round has EXACTLY half as many matches as the previous one, and when
+// sibling matches are adjacent-by-index within their round. Neither is
+// guaranteed — group-stage seeding, odd bracket sizes, and byes can all break
+// those assumptions — which is exactly what caused the crooked, hard-to-follow
+// lines. Measuring real DOM positions after layout and connecting by the
+// match's actual `next_match_id` / `next_slot` (never by index) guarantees
+// every line touches the correct box, at the correct row, pixel-perfectly.
+interface Connector { x1: number; y1: number; x2: number; y2: number; live: boolean }
+
 function FullBracket({ rounds, isAdmin, onMatchClick, ui }: {
   rounds:        RoundGroup[]
   isAdmin?:      boolean
   onMatchClick?: (match: Match) => void
   ui:            SportUiClasses
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const cardRefs      = useRef<Map<string, HTMLDivElement>>(new Map())
+  const [connectors, setConnectors] = useState<Connector[]>([])
+  const [svgSize, setSvgSize] = useState({ width: 0, height: 0 })
+
+  const allMatches = useMemo(() => rounds.flatMap(r => r.matches), [rounds])
+
+  const measure = useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+    const containerRect = container.getBoundingClientRect()
+    const next: Connector[] = []
+
+    for (const m of allMatches) {
+      if (!m.next_match_id) continue
+      const sourceEl = cardRefs.current.get(m.id)
+      const destEl   = cardRefs.current.get(m.next_match_id)
+      if (!sourceEl || !destEl) continue
+
+      const sr = sourceEl.getBoundingClientRect()
+      const dr = destEl.getBoundingClientRect()
+
+      const x1 = sr.right - containerRect.left
+      const y1 = sr.top + sr.height / 2 - containerRect.top
+      const x2 = dr.left - containerRect.left
+      // Land on the exact player row the winner slots into (top row for
+      // next_slot 1, bottom row for next_slot 2) instead of the card's
+      // overall center — this is what makes the destination touch-point
+      // symmetric with the OTHER feeder line for that same match.
+      const rowFrac = m.next_slot === 2 ? 0.75 : 0.25
+      const y2 = dr.top + dr.height * rowFrac - containerRect.top
+
+      next.push({ x1, y1, x2, y2, live: m.status === 'live' })
+    }
+
+    setConnectors(next)
+    setSvgSize({ width: container.scrollWidth, height: container.scrollHeight })
+  }, [allMatches])
+
+  useLayoutEffect(() => {
+    measure()
+    // Fonts/images can shift layout slightly after first paint — remeasure
+    // once more on the next frame to catch that, then keep in sync with
+    // any further size changes (e.g. sidebar collapse, window resize).
+    const raf = requestAnimationFrame(measure)
+    const ro  = new ResizeObserver(measure)
+    if (containerRef.current) ro.observe(containerRef.current)
+    window.addEventListener('resize', measure)
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [measure])
+
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="flex min-w-max" style={{ alignItems: 'flex-start' }}>
+      <div ref={containerRef} className="relative flex min-w-max" style={{ alignItems: 'flex-start' }}>
+        {/* Connector overlay — drawn from measured card positions, so it is
+            always pixel-symmetric regardless of round sizes / match order. */}
+        <svg
+          className="absolute top-0 left-0 pointer-events-none"
+          width={svgSize.width}
+          height={svgSize.height}
+          style={{ overflow: 'visible' }}
+        >
+          {connectors.map((c, i) => {
+            const midX = (c.x1 + c.x2) / 2
+            return (
+              <path
+                key={i}
+                d={`M ${c.x1} ${c.y1} H ${midX} V ${c.y2} H ${c.x2}`}
+                fill="none"
+                stroke={c.live ? ui.hex : 'currentColor'}
+                strokeWidth={c.live ? 2 : 1}
+                className={c.live ? undefined : 'text-border'}
+                opacity={c.live ? 0.9 : 0.6}
+              />
+            )
+          })}
+        </svg>
+
         {rounds.map((round, roundIdx) => {
           const mul        = Math.pow(2, roundIdx)
           const gap        = (mul - 1) * CARD_H + 8
@@ -232,65 +325,30 @@ function FullBracket({ rounds, isAdmin, onMatchClick, ui }: {
 
               {/* Match column */}
               <div className="flex flex-col" style={{ gap: `${gap}px` }}>
-                {round.matches.map((match, matchIdx) => {
-                  const isEven = matchIdx % 2 === 0
-
-                  return (
+                {round.matches.map((match, matchIdx) => (
+                  <div
+                    key={match.id}
+                    style={{
+                      paddingTop:   matchIdx === 0 ? `${topPad}px` : '0',
+                      paddingRight: isLast ? '0' : `${CONN_W + COL_PAD}px`,
+                    }}
+                  >
                     <div
-                      key={match.id}
-                      className="relative"
-                      style={{
-                        paddingTop:   matchIdx === 0 ? `${topPad}px` : '0',
-                        paddingRight: isLast ? '0' : `${CONN_W + COL_PAD}px`,
+                      ref={el => {
+                        if (el) cardRefs.current.set(match.id, el)
+                        else cardRefs.current.delete(match.id)
                       }}
+                      style={{ width: CARD_W, paddingLeft: 4, paddingRight: 4 }}
                     >
-                      {/*
-                        Connector geometry:
-                        Each match div has height = CARD_H (plus topPad on matchIdx===0).
-                        The card midpoint in the div's local coordinate space:
-                          - matchIdx === 0: topPad + CARD_H/2   (paddingTop shifts card down)
-                          - matchIdx  > 0: CARD_H/2             (no padding)
-
-                        Vertical connector (on even/top match of each sibling pair):
-                          Runs from top-match midpoint DOWN to bottom-match midpoint.
-                          Height = gap + CARD_H  (exactly spans gap between siblings + one card).
-
-                        Horizontal connector (every match):
-                          Goes right from card midpoint to the connector column.
-                      */}
-                      {/* Vertical connector joining sibling pair — drawn on the EVEN (top) match */}
-                      {!isLast && isEven && (
-                        <div className="bracket-connector" style={{
-                          position:   'absolute',
-                          right:      COL_PAD,
-                          top:        matchIdx === 0 ? topPad + CARD_H / 2 : CARD_H / 2,
-                          width:      1,
-                          height:     gap + CARD_H,
-                        }} />
-                      )}
-                      {/* Horizontal connector to next round — drawn on every match */}
-                      {!isLast && (
-                        <div className="bracket-connector" style={{
-                          position:   'absolute',
-                          right:      COL_PAD,
-                          top:        matchIdx === 0 ? topPad + CARD_H / 2 : CARD_H / 2,
-                          width:      CONN_W,
-                          height:     1,
-                        }} />
-                      )}
-
-                      {/* Card */}
-                      <div style={{ width: CARD_W, paddingLeft: 4, paddingRight: 4 }}>
-                        <DrawCard
-                          match={match}
-                          isAdmin={isAdmin}
-                          ui={ui}
-                          onClick={onMatchClick && match.status !== 'bye' ? () => onMatchClick(match) : undefined}
-                        />
-                      </div>
+                      <DrawCard
+                        match={match}
+                        isAdmin={isAdmin}
+                        ui={ui}
+                        onClick={onMatchClick && match.status !== 'bye' ? () => onMatchClick(match) : undefined}
+                      />
                     </div>
-                  )
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           )
