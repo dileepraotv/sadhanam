@@ -199,6 +199,57 @@ const CARD_W = 240   // px — mobile-friendly width
 const CARD_H = 92    // px — enough height for two player rows + divider
 const CONN_W = 30    // connector line width
 const COL_PAD = 10   // gap between card edge and connector
+const LEAF_GAP = 8   // px gap between adjacent cards in the first (leaf) column
+
+// ── Column layout (computed from the tree, not a power-of-2 formula) ──────────
+//
+// Each match's vertical CENTER is the midpoint of its two feeder matches'
+// centers (found via next_match_id/next_slot, never by array index) — the
+// classic recursive bracket-tree layout. The leaf (first) column gets simple
+// uniform spacing; every later column inherits its rhythm from its children.
+// This is what makes every "V" elbow symmetric even when a round's match
+// count isn't a clean half of the previous round's (byes, odd seed counts,
+// group-stage carry-over, etc. all break the old Math.pow(2, roundIdx) math).
+function computeColumnLayout(rounds: RoundGroup[]): Map<string, number> {
+  const top = new Map<string, number>()
+  if (rounds.length === 0) return top
+
+  rounds[0].matches.forEach((m, i) => {
+    top.set(m.id, i * (CARD_H + LEAF_GAP))
+  })
+
+  for (let k = 1; k < rounds.length; k++) {
+    const feedersByNext = new Map<string, string[]>()
+    for (let j = 0; j < k; j++) {
+      for (const fm of rounds[j].matches) {
+        if (!fm.next_match_id) continue
+        const arr = feedersByNext.get(fm.next_match_id) ?? []
+        arr.push(fm.id)
+        feedersByNext.set(fm.next_match_id, arr)
+      }
+    }
+
+    rounds[k].matches.forEach((m, i) => {
+      const centers = (feedersByNext.get(m.id) ?? [])
+        .map(id => top.get(id))
+        .filter((v): v is number => v != null)
+        .map(t => t + CARD_H / 2)
+
+      if (centers.length > 0) {
+        const avgCenter = centers.reduce((a, b) => a + b, 0) / centers.length
+        top.set(m.id, avgCenter - CARD_H / 2)
+      } else {
+        // No feeder found (shouldn't normally happen) — stack after the
+        // previous match in this same round rather than collapsing to 0.
+        const prevId = rounds[k].matches[i - 1]?.id
+        const prevTop = prevId ? (top.get(prevId) ?? 0) : -CARD_H - LEAF_GAP
+        top.set(m.id, prevTop + CARD_H + LEAF_GAP)
+      }
+    })
+  }
+
+  return top
+}
 
 // ── Connector line (measured, not formula-based) ──────────────────────────────
 //
@@ -226,6 +277,12 @@ function FullBracket({ rounds, isAdmin, onMatchClick, ui }: {
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 })
 
   const allMatches = useMemo(() => rounds.flatMap(r => r.matches), [rounds])
+  const columnLayout = useMemo(() => computeColumnLayout(rounds), [rounds])
+  const columnHeight = useMemo(() => {
+    let max = 0
+    for (const t of columnLayout.values()) max = Math.max(max, t + CARD_H)
+    return max
+  }, [columnLayout])
 
   const measure = useCallback(() => {
     const container = containerRef.current
@@ -303,14 +360,12 @@ function FullBracket({ rounds, isAdmin, onMatchClick, ui }: {
         </svg>
 
         {rounds.map((round, roundIdx) => {
-          const mul        = Math.pow(2, roundIdx)
-          const gap        = (mul - 1) * CARD_H + 8
-          const topPad     = (mul - 1) * (CARD_H / 2)
           const isLast     = roundIdx === rounds.length - 1
           const hasLive    = round.matches.some(m => m.status === 'live')
+          const colWidth   = CARD_W + 8 + (isLast ? 0 : CONN_W + COL_PAD)
 
           return (
-            <div key={round.round} className="flex flex-col">
+            <div key={round.round} className="flex flex-col" style={{ width: colWidth }}>
               {/* Round column header */}
               <div className="text-center py-2 px-3 mb-1">
                 <span
@@ -323,13 +378,18 @@ function FullBracket({ rounds, isAdmin, onMatchClick, ui }: {
                 </span>
               </div>
 
-              {/* Match column */}
-              <div className="flex flex-col" style={{ gap: `${gap}px` }}>
-                {round.matches.map((match, matchIdx) => (
+              {/* Match column — each card is absolutely positioned at its
+                  computed (tree-centered) top offset, so every column shares
+                  the same coordinate space and elbows land symmetrically. */}
+              <div className="relative" style={{ height: columnHeight }}>
+                {round.matches.map(match => (
                   <div
                     key={match.id}
                     style={{
-                      paddingTop:   matchIdx === 0 ? `${topPad}px` : '0',
+                      position:     'absolute',
+                      top:          columnLayout.get(match.id) ?? 0,
+                      left:         0,
+                      right:        0,
                       paddingRight: isLast ? '0' : `${CONN_W + COL_PAD}px`,
                     }}
                   >
