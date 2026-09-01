@@ -300,7 +300,17 @@ function FullBracket({ rounds, isAdmin, onMatchClick, ui }: {
       const dr = destEl.getBoundingClientRect()
 
       const x1 = sr.right - containerRect.left
-      const y1 = sr.top + sr.height / 2 - containerRect.top
+      // Leave from the exact row of the player who is actually advancing
+      // (winner_id — set for both 'complete' and auto-advanced 'bye'
+      // matches), not the card's overall vertical center. Without this the
+      // line visually detaches from the winner's name whenever a card's two
+      // rows aren't perfectly symmetric around its center (e.g. a BYE row),
+      // which is what made the elbows look crooked/unaligned. Fall back to
+      // the card center only while the match is still undecided.
+      const srcRowFrac = m.winner_id != null
+        ? (m.winner_id === m.player1_id ? 0.25 : 0.75)
+        : 0.5
+      const y1 = sr.top + sr.height * srcRowFrac - containerRect.top
       const x2 = dr.left - containerRect.left
       // Land on the exact player row the winner slots into (top row for
       // next_slot 1, bottom row for next_slot 2) instead of the card's
