@@ -408,7 +408,11 @@ export function NewEventForm({ cid, createAction }: Props) {
                 <button key={opt.value} type="button"
                   onClick={() => handleSelectFormat(opt.value)}
                   className={cn(
-                    'flex items-start gap-3 px-4 py-3 text-left transition-all border-l-2',
+                    // Fixed min-height so every row in the list is the same size —
+                    // team formats have an extra "structure" line (e.g. "2 players/
+                    // team · 4 singles + 1 doubles") that singles formats don't,
+                    // which previously made rows visibly different heights.
+                    'flex items-start gap-3 px-4 py-3 text-left transition-all border-l-2 min-h-[76px]',
                     isSelected
                       ? `${accent.bgLight} ${accent.border} ${accent.text}`
                       : 'border-transparent hover:bg-muted/40 text-foreground',
